@@ -79,9 +79,11 @@ var icons = map[string][5]string{
 var iconColors = map[byte]rgb{'y': yellow, 'g': gray, 'b': blue, 'i': ice, 'o': orange, 'w': white}
 
 type weather struct {
-	ok   bool
-	temp int
-	icon string
+	ok    bool
+	temp  int
+	icon  string
+	humOK bool // в доме: влажность слева вместо иконки
+	hum   int
 }
 
 func render(t time.Time, w weather) *[256]rgb {
@@ -120,14 +122,22 @@ func render(t time.Time, w weather) *[256]rgb {
 		text("--", 16-width("--"), 10, gray)
 		return &px
 	}
+	s, hum := strconv.Itoa(w.temp), strconv.Itoa(w.hum)
+	withHum := w.humOK && width(hum)+1+width(s) <= 16 // минус у температуры может не оставить места
+	if withHum {
+		text(hum, 0, 10, blue)
+	}
 	for dy, row := range icons[w.icon] {
+		if withHum {
+			break
+		}
 		for dx, p := range []byte(row) {
 			if p != '.' {
 				put(dx, 10+dy, iconColors[p])
 			}
 		}
 	}
-	s, c := strconv.Itoa(w.temp), yellow
+	c := yellow
 	if w.temp <= 0 {
 		c = ice
 	}

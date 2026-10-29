@@ -20,7 +20,8 @@ type stateJSON struct {
 		Temp int    `json:"temp"`
 		Icon string `json:"icon"`
 	} `json:"weather,omitempty"`
-	Home    *int      `json:"home,omitempty"` // температура в доме
+	Home    *int      `json:"home,omitempty"`    // температура в доме
+	HomeHum *int      `json:"homeHum,omitempty"` // влажность в доме, %
 	Updated time.Time `json:"updated"`
 	// часы Дито, какими мы их выставили: стенное время без пояса, чтобы браузер не пересчитывал
 	DeviceTime string    `json:"deviceTime,omitempty"`
@@ -42,6 +43,10 @@ func (s *state) snapshot() stateJSON {
 	if s.home.ok && s.cfg.HomeURL != "" {
 		t := s.home.temp // копия: снимок кодируется уже без блокировки
 		j.Home = &t
+		if s.home.humOK {
+			h := s.home.hum
+			j.HomeHum = &h
+		}
 	}
 	if s.w.ok {
 		j.Weather = &struct {

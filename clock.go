@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -34,7 +35,8 @@ type config struct {
 	ScreenSec  int      `json:"screenSec"`      // как часто перерисовывать экран
 	WeatherMin int      `json:"weatherMin"`     // как часто спрашивать погоду
 	HomeURL    string   `json:"homeURL"`        // метрики Prometheus с температурой в доме; пусто - только погода
-	HomeMetric string   `json:"homeMetric"`     // какая строка метрик: name{label="value",...}
+	HomeMetric string   `json:"homeMetric"`     // какая строка метрик - температура: name{label="value",...}
+	HomeHumid  string   `json:"homeHumid"`      // влажность оттуда же; пусто - без неё
 	Addr       string   `json:"addr,omitempty"` // адрес Дито, запоминается при первом подключении; убрать - искать заново
 }
 
@@ -75,6 +77,9 @@ func (c config) validate() error {
 			return fmt.Errorf("адрес метрик дома: http(s)://…")
 		}
 		if _, _, err := parseSelector(c.HomeMetric); err != nil {
+			return err
+		}
+		if _, _, err := parseSelector(c.HomeHumid); c.HomeHumid != "" && err != nil {
 			return err
 		}
 	}
@@ -179,15 +184,15 @@ func (s *state) run() {
 
 		if cfg.HomeURL == "" {
 			homeFrom = ""
-		} else if time.Since(homeAt) > time.Minute || cfg.HomeURL+cfg.HomeMetric != homeFrom {
-			h, err := homeTemp(cfg.HomeURL, cfg.HomeMetric)
+		} else if from := cfg.HomeURL + cfg.HomeMetric + cfg.HomeHumid; time.Since(homeAt) > time.Minute || from != homeFrom {
+			h, err := fetchHome(cfg.HomeURL, cfg.HomeMetric, cfg.HomeHumid)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "дом:", err)
 			}
 			s.mu.Lock()
-			s.home = weather{ok: err == nil, temp: int(math.Round(h)), icon: "home"}
+			s.home = h
 			s.mu.Unlock()
-			homeAt, homeFrom = time.Now(), cfg.HomeURL+cfg.HomeMetric
+			homeAt, homeFrom = time.Now(), from
 		}
 
 		loc, _ := time.LoadLocation(cfg.TZ)
@@ -333,22 +338,42 @@ func parseSelector(s string) (string, map[string]string, error) {
 	return name, labels, nil
 }
 
-// homeTemp берёт из метрик Prometheus значение первой строки, подходящей под селектор.
-func homeTemp(addr, selector string) (float64, error) {
-	want, wantLabels, err := parseSelector(selector)
-	if err != nil {
-		return 0, err
-	}
+// fetchHome берёт температуру и, если задана, влажность в доме из метрик Prometheus.
+// Без температуры дом не показываем; без влажности показываем домик и температуру.
+func fetchHome(addr, tempSel, humSel string) (weather, error) {
 	c := http.Client{Timeout: 3 * time.Second}
 	resp, err := c.Get(addr)
 	if err != nil {
-		return 0, err
+		return weather{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("%s: %s", addr, resp.Status)
+		return weather{}, fmt.Errorf("%s: %s", addr, resp.Status)
 	}
-	return matchMetric(resp.Body, want, wantLabels)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		return weather{}, err
+	}
+	get := func(sel string) (float64, error) {
+		name, labels, err := parseSelector(sel)
+		if err != nil {
+			return 0, err
+		}
+		return matchMetric(bytes.NewReader(body), name, labels)
+	}
+	t, err := get(tempSel)
+	if err != nil {
+		return weather{}, err
+	}
+	w := weather{ok: true, temp: int(math.Round(t)), icon: "home"}
+	if humSel != "" {
+		h, err := get(humSel)
+		if err != nil {
+			return w, fmt.Errorf("влажность: %w", err)
+		}
+		w.humOK, w.hum = true, min(99, max(0, int(math.Round(h)))) // 100 тремя цифрами рядом с температурой не влезает
+	}
+	return w, nil
 }
 
 func matchMetric(r io.Reader, want string, wantLabels map[string]string) (float64, error) {

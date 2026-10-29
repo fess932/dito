@@ -217,7 +217,11 @@ figcaption .mono { color: var(--fg); }
       <div class="field">
         <label for="homeMetric">Строка метрик</label>
         <input type="text" id="homeMetric" maxlength="300" class="mono" placeholder='homedeck_device_value{device_id="…",key="temperature"}' spellcheck="false">
-        <span class="hint">Если задано, экран раз в минуту чередует улицу и дом с домиком. Пока дом не отвечает, всё время показывается улица. Пустой адрес выключает. Сохраняется кнопкой «Применить».</span>
+      </div>
+      <div class="field">
+        <label for="homeHumid">Строка метрик влажности <span class="hint">необязательно</span></label>
+        <input type="text" id="homeHumid" maxlength="300" class="mono" placeholder='homedeck_device_value{device_id="…",key="humidity"}' spellcheck="false">
+        <span class="hint">Если задано, экран раз в минуту чередует улицу и дом: влажность слева синим, температура справа (без влажности — домик и температура). Пока дом не отвечает, всё время показывается улица. Пустой адрес выключает. Сохраняется кнопкой «Применить».</span>
       </div>
     </fieldset>
 
@@ -375,6 +379,7 @@ function fillForm(c) {
   $("weatherMin").value = c.weatherMin;
   $("homeURL").value = c.homeURL || "";
   $("homeMetric").value = c.homeMetric || "";
+  $("homeHumid").value = c.homeHumid || "";
   tzs = [...c.tzs]; tz = c.tz; cities = [...c.cities]; city = c.city;
   renderTz(); renderCities(); syncLabels();
 }
@@ -399,6 +404,7 @@ async function save(done = "Сохранено") {
       weatherMin: +$("weatherMin").value,
       homeURL: $("homeURL").value.trim(),
       homeMetric: $("homeMetric").value.trim(),
+      homeHumid: $("homeHumid").value.trim(),
     });
     paint();
     setStatus("msg", done + ", Дито обновится через пару секунд");
@@ -450,7 +456,7 @@ function paint() {
     parts.push(state.weather
       ? where + ': <span class="mono">' + state.weather.temp + "°</span> " + (ICONS[state.weather.icon] || "")
       : where + ": погода не загрузилась");
-    if (state.config.homeURL) parts.push(state.home !== undefined ? 'дома <span class="mono">' + state.home + "°</span>" : "дом не отвечает");
+    if (state.config.homeURL) parts.push(state.home !== undefined ? 'дома <span class="mono">' + state.home + "°" + (state.homeHum !== undefined ? " " + state.homeHum + "%" : "") + "</span>" : "дом не отвечает");
   }
   $("caption").innerHTML = parts.join(" · ") || "Жду первый кадр…";
   document.querySelectorAll("[data-tz]").forEach(s => { s.textContent = timeIn(s.dataset.tz); });
