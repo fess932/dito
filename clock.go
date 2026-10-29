@@ -42,8 +42,8 @@ func (c config) validate() error {
 	if len(c.City) > 100 {
 		return fmt.Errorf("город: слишком длинное название")
 	}
-	if c.ScreenSec < 10 || c.ScreenSec > 3600 {
-		return fmt.Errorf("обновление экрана: от 10 секунд до часа")
+	if c.ScreenSec < 1 || c.ScreenSec > 3600 {
+		return fmt.Errorf("обновление экрана: от 1 секунды до часа")
 	}
 	if c.WeatherMin < 5 || c.WeatherMin > 180 { // wttr.in ограничивает частые запросы
 		return fmt.Errorf("обновление погоды: от 5 до 180 минут")

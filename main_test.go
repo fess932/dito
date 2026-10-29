@@ -43,7 +43,7 @@ func TestConfigValidate(t *testing.T) {
 		bad(func(c *config) { c.Color = "fff" }),
 		bad(func(c *config) { c.Brightness = 101 }),
 		bad(func(c *config) { c.TZ = "Mars/Olympus" }),
-		bad(func(c *config) { c.ScreenSec = 5 }),
+		bad(func(c *config) { c.ScreenSec = 0 }),
 		bad(func(c *config) { c.WeatherMin = 1 }),
 	} {
 		if c.validate() == nil {

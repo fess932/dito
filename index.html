@@ -170,14 +170,14 @@ figcaption .mono { color: var(--fg); }
       <div class="pair">
         <div class="field">
           <label for="screenSec">Экран, раз в</label>
-          <div class="row"><input type="number" id="screenSec" min="10" max="3600" step="1" value="60" inputmode="numeric"><span class="unit">сек</span></div>
+          <div class="row"><input type="number" id="screenSec" min="1" max="3600" step="1" value="60" inputmode="numeric"><span class="unit">сек</span></div>
         </div>
         <div class="field">
           <label for="weatherMin">Погода, раз в</label>
           <div class="row"><input type="number" id="weatherMin" min="5" max="180" step="1" value="10" inputmode="numeric"><span class="unit">мин</span></div>
         </div>
       </div>
-      <span class="hint">Экран: 10–3600 с, при 60 кадр уходит ровно в начале минуты. Погода: 5–180 мин, чаще wttr.in не любит.</span>
+      <span class="hint">Экран: 1–3600 с, при 60 кадр уходит ровно в начале минуты; часы меняются раз в минуту, чаще нужно только для будущих анимаций. Погода: 5–180 мин, чаще wttr.in не любит.</span>
     </fieldset>
 
     <div class="actions">
