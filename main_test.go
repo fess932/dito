@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -87,5 +88,30 @@ func TestAlarmRoundTrip(t *testing.T) {
 	a := alarm{Index: 2, On: true, Hour: 7, Minute: 30, Weekdays: 0b0111110, Mode: 1, Trigger: 3, FM: 1023, Volume: 60}
 	if got := parseAlarms(a.payload()); len(got) != 1 || got[0] != a {
 		t.Fatalf("%+v", got)
+	}
+}
+
+func TestMatchMetric(t *testing.T) {
+	body := `# HELP homedeck_device_value x
+homedeck_device_value{device_id="dev_a",device="MT15/MT29",key="humidity",unit="percent"} 49
+homedeck_device_value{device_id="dev_a",device="MT15/MT29",key="temperature",unit="celsius"} 24.6 1793269706
+up 1
+`
+	name, labels, err := parseSelector(`homedeck_device_value{device_id="dev_a",key="temperature"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, err := matchMetric(strings.NewReader(body), name, labels); err != nil || v != 24.6 {
+		t.Fatalf("got %v, %v", v, err)
+	}
+	if v, err := matchMetric(strings.NewReader(body), "up", nil); err != nil || v != 1 {
+		t.Fatalf("без меток: %v, %v", v, err)
+	}
+	labels["key"] = "co2"
+	if _, err := matchMetric(strings.NewReader(body), name, labels); err == nil {
+		t.Fatal("нет такой строки, а ошибки нет")
+	}
+	if _, _, err := parseSelector(`x{a="b"`); err == nil {
+		t.Fatal("незакрытая скобка прошла")
 	}
 }

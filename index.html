@@ -210,6 +210,15 @@ figcaption .mono { color: var(--fg); }
         </div>
         <span class="hint">Названия как в wttr.in. Пустое поле добавит «по IP мини-ПК».</span>
       </div>
+      <div class="field">
+        <label for="homeURL">Температура в доме: метрики Prometheus</label>
+        <input type="text" id="homeURL" maxlength="300" placeholder="http://127.0.0.1:9091/metrics" inputmode="url" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="homeMetric">Строка метрик</label>
+        <input type="text" id="homeMetric" maxlength="300" class="mono" placeholder='homedeck_device_value{device_id="…",key="temperature"}' spellcheck="false">
+        <span class="hint">Если задано, экран раз в минуту чередует улицу и дом с домиком. Пока дом не отвечает, всё время показывается улица. Пустой адрес выключает. Сохраняется кнопкой «Применить».</span>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -364,6 +373,8 @@ function fillForm(c) {
   $("brightness").value = c.brightness;
   $("screenSec").value = c.screenSec;
   $("weatherMin").value = c.weatherMin;
+  $("homeURL").value = c.homeURL || "";
+  $("homeMetric").value = c.homeMetric || "";
   tzs = [...c.tzs]; tz = c.tz; cities = [...c.cities]; city = c.city;
   renderTz(); renderCities(); syncLabels();
 }
@@ -386,6 +397,8 @@ async function save(done = "Сохранено") {
       tzs, tz, cities, city,
       screenSec: +$("screenSec").value,
       weatherMin: +$("weatherMin").value,
+      homeURL: $("homeURL").value.trim(),
+      homeMetric: $("homeMetric").value.trim(),
     });
     paint();
     setStatus("msg", done + ", Дито обновится через пару секунд");
@@ -437,6 +450,7 @@ function paint() {
     parts.push(state.weather
       ? where + ': <span class="mono">' + state.weather.temp + "°</span> " + (ICONS[state.weather.icon] || "")
       : where + ": погода не загрузилась");
+    if (state.config.homeURL) parts.push(state.home !== undefined ? 'дома <span class="mono">' + state.home + "°</span>" : "дом не отвечает");
   }
   $("caption").innerHTML = parts.join(" · ") || "Жду первый кадр…";
   document.querySelectorAll("[data-tz]").forEach(s => { s.textContent = timeIn(s.dataset.tz); });

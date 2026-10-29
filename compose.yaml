@@ -4,10 +4,11 @@ services:
     restart: unless-stopped
     # BlueZ на хосте пускает к адаптеру через системную шину D-Bus только root
     user: root
+    # сеть хоста: метрики для температуры в доме обычно слушают только 127.0.0.1
+    network_mode: host
     environment:
       TZ: Europe/Belgrade
-    ports:
-      - "8080:8080"
+      DITO_ADDR: ":8080"
     volumes:
       - /run/dbus:/run/dbus:ro
       - ./data:/data

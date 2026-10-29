@@ -73,9 +73,10 @@ var icons = map[string][5]string{
 	"rain":    {".ggg.", "ggggg", ".....", "b.b.b", ".b.b."},
 	"snow":    {".ggg.", "ggggg", ".....", "i.i.i", ".i.i."},
 	"thunder": {".ggg.", "ggggg", "..y..", ".y...", "..y.."},
+	"home":    {"..o..", ".ooo.", "ooooo", ".w.w.", ".w.w."},
 }
 
-var iconColors = map[byte]rgb{'y': yellow, 'g': gray, 'b': blue, 'i': ice}
+var iconColors = map[byte]rgb{'y': yellow, 'g': gray, 'b': blue, 'i': ice, 'o': orange, 'w': white}
 
 type weather struct {
 	ok   bool

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -8,11 +9,15 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +33,8 @@ type config struct {
 	City       string   `json:"city"`           // активный город
 	ScreenSec  int      `json:"screenSec"`      // как часто перерисовывать экран
 	WeatherMin int      `json:"weatherMin"`     // как часто спрашивать погоду
+	HomeURL    string   `json:"homeURL"`        // метрики Prometheus с температурой в доме; пусто - только погода
+	HomeMetric string   `json:"homeMetric"`     // какая строка метрик: name{label="value",...}
 	Addr       string   `json:"addr,omitempty"` // адрес Дито, запоминается при первом подключении; убрать - искать заново
 }
 
@@ -63,6 +70,14 @@ func (c config) validate() error {
 	if c.ScreenSec < 1 || c.ScreenSec > 3600 {
 		return fmt.Errorf("обновление экрана: от 1 секунды до часа")
 	}
+	if c.HomeURL != "" {
+		if u, err := url.Parse(c.HomeURL); err != nil || u.Scheme != "http" && u.Scheme != "https" || len(c.HomeURL) > 300 {
+			return fmt.Errorf("адрес метрик дома: http(s)://…")
+		}
+		if _, _, err := parseSelector(c.HomeMetric); err != nil {
+			return err
+		}
+	}
 	if c.WeatherMin < 5 || c.WeatherMin > 180 { // wttr.in ограничивает частые запросы
 		return fmt.Errorf("обновление погоды: от 5 до 180 минут")
 	}
@@ -76,6 +91,7 @@ type state struct {
 	cfg       config
 	px        *[256]rgb
 	w         weather
+	home      weather // температура в доме, иконка home
 	connected bool
 	err       string
 	updated   time.Time
@@ -142,6 +158,8 @@ func (s *state) setConfig(c config) error {
 func (s *state) run() {
 	var fetched time.Time
 	var fetchedCity string
+	var homeAt time.Time
+	var homeFrom string // для каких адреса и метрики s.home; пусто - дом не показываем
 	sentBright := -1
 	for {
 		cfg := s.config()
@@ -159,6 +177,19 @@ func (s *state) run() {
 			fetched, fetchedCity = time.Now(), cfg.City
 		}
 
+		if cfg.HomeURL == "" {
+			homeFrom = ""
+		} else if time.Since(homeAt) > time.Minute || cfg.HomeURL+cfg.HomeMetric != homeFrom {
+			h, err := homeTemp(cfg.HomeURL, cfg.HomeMetric)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "дом:", err)
+			}
+			s.mu.Lock()
+			s.home = weather{ok: err == nil, temp: int(math.Round(h)), icon: "home"}
+			s.mu.Unlock()
+			homeAt, homeFrom = time.Now(), cfg.HomeURL+cfg.HomeMetric
+		}
+
 		loc, _ := time.LoadLocation(cfg.TZ)
 		var px *[256]rgb
 		if cfg.Mode == "color" {
@@ -170,6 +201,9 @@ func (s *state) run() {
 		} else {
 			s.mu.Lock()
 			w := s.w
+			if homeFrom != "" && s.home.ok && time.Now().Unix()/60%2 == 1 { // по нечётным минутам - дом, по чётным - улица
+				w = s.home
+			}
 			s.mu.Unlock()
 			px = render(time.Now().In(loc), w)
 		}
@@ -276,6 +310,79 @@ func fetchWeather(city string) (weather, error) {
 	}
 	code, _ := strconv.Atoi(r.Current[0].WeatherCode)
 	return weather{ok: true, temp: t, icon: iconFor(code)}, nil
+}
+
+var labelRe = regexp.MustCompile(`(\w+)="((?:[^"\\]|\\.)*)"`)
+
+// parseSelector разбирает name{label="value",...} - и селектор из настроек, и строку метрик.
+func parseSelector(s string) (string, map[string]string, error) {
+	name, rest, braces := strings.Cut(strings.TrimSpace(s), "{")
+	labels := map[string]string{}
+	if braces {
+		body, ok := strings.CutSuffix(rest, "}")
+		if !ok {
+			return "", nil, fmt.Errorf("метрика %q: нет закрывающей }", s)
+		}
+		for _, m := range labelRe.FindAllStringSubmatch(body, -1) {
+			labels[m[1]] = m[2]
+		}
+	}
+	if name == "" || strings.ContainsAny(name, " \t\"=,") {
+		return "", nil, fmt.Errorf("метрика %q: нужно имя{метка=\"значение\"}", s)
+	}
+	return name, labels, nil
+}
+
+// homeTemp берёт из метрик Prometheus значение первой строки, подходящей под селектор.
+func homeTemp(addr, selector string) (float64, error) {
+	want, wantLabels, err := parseSelector(selector)
+	if err != nil {
+		return 0, err
+	}
+	c := http.Client{Timeout: 3 * time.Second}
+	resp, err := c.Get(addr)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("%s: %s", addr, resp.Status)
+	}
+	return matchMetric(resp.Body, want, wantLabels)
+}
+
+func matchMetric(r io.Reader, want string, wantLabels map[string]string) (float64, error) {
+	sc := bufio.NewScanner(r)
+	sc.Buffer(nil, 1<<20)
+next:
+	for sc.Scan() {
+		line := sc.Text()
+		if line == "" || line[0] == '#' {
+			continue
+		}
+		i := strings.LastIndexByte(line, '}') + 1 // значение - после меток, а без меток - после имени
+		if i == 0 {
+			i = strings.IndexByte(line, ' ')
+		}
+		if i <= 0 {
+			continue
+		}
+		name, labels, err := parseSelector(line[:i])
+		if err != nil || name != want {
+			continue
+		}
+		for k, v := range wantLabels {
+			if labels[k] != v {
+				continue next
+			}
+		}
+		val, _, _ := strings.Cut(strings.TrimSpace(line[i:]), " ") // за значением может идти время
+		return strconv.ParseFloat(val, 64)
+	}
+	if err := sc.Err(); err != nil {
+		return 0, err
+	}
+	return 0, fmt.Errorf("в метриках нет %s%v", want, wantLabels)
 }
 
 // iconFor переводит код погоды WWO (его отдаёт wttr.in) в иконку.
