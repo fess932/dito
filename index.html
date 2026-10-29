@@ -453,8 +453,8 @@ function paintDevClock() {
     return;
   }
   const t = new Date(devBase + Date.now() - devRecv).toLocaleTimeString("ru-RU", { timeZone: "UTC" });
-  const at = new Date(state.syncedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  c.innerHTML = 'На Дито <span class="mono">' + t + "</span> · " + tzName(state.deviceTZ) + " · выставлено в " + at;
+  const min = Math.round((Date.now() - Date.parse(state.syncedAt)) / 60000); // относительно: пояс браузера может отличаться от пояса Дито
+  c.innerHTML = 'На Дито <span class="mono">' + t + "</span> · " + tzName(state.deviceTZ) + " · выставлено " + (min < 1 ? "только что" : min + " мин назад");
 }
 
 async function refresh(first) {
