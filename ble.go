@@ -33,6 +33,8 @@ var (
 	waiters = map[byte]chan []byte{}
 
 	verbose bool // печатать все кадры от Дито (для разовых команд из консоли)
+
+	btAddr string // адрес Дито: подключаемся сразу по нему; пусто - ищем по имени. Менять под btMu
 )
 
 var errNoReply = errors.New("Дито не ответил")
@@ -51,23 +53,18 @@ func btOpen() (err error) {
 		return err
 	}
 	var addr bluetooth.Address
-	found := false
-	t := time.AfterFunc(15*time.Second, func() { a.StopScan() })
-	err = a.Scan(func(a *bluetooth.Adapter, r bluetooth.ScanResult) {
-		if strings.HasPrefix(r.LocalName(), name) {
-			addr, found = r.Address, true
-			a.StopScan()
+	if btAddr != "" {
+		addr.Set(btAddr)
+		dev, err = a.Connect(addr, bluetooth.ConnectionParams{})
+	}
+	if btAddr == "" || err != nil { // адрес не знаем или система его забыла - ищем в эфире
+		if addr, err = btScan(a); err != nil {
+			return err
 		}
-	})
-	t.Stop()
-	if err != nil {
-		return err
-	}
-	if !found {
-		return fmt.Errorf("%s не найден", name)
-	}
-	if dev, err = a.Connect(addr, bluetooth.ConnectionParams{}); err != nil {
-		return err
+		if dev, err = a.Connect(addr, bluetooth.ConnectionParams{}); err != nil {
+			return err
+		}
+		btAddr = addr.String()
 	}
 	defer func() { // не оставляем висеть полуоткрытое соединение
 		if err != nil {
@@ -91,6 +88,27 @@ func btOpen() (err error) {
 		chunk = max(20, min(509, int(mtu)-3))
 	}
 	return tx.EnableNotifications(onNotify)
+}
+
+// btScan ищет Дито по имени, а если адрес уже известен - именно его, чтобы не уйти к соседнему Дито.
+func btScan(a *bluetooth.Adapter) (addr bluetooth.Address, err error) {
+	found := false
+	t := time.AfterFunc(15*time.Second, func() { a.StopScan() })
+	err = a.Scan(func(a *bluetooth.Adapter, r bluetooth.ScanResult) {
+		if btAddr != "" && r.Address.String() == btAddr || btAddr == "" && strings.HasPrefix(r.LocalName(), name) {
+			addr, found = r.Address, true
+			a.StopScan()
+		}
+	})
+	t.Stop()
+	switch {
+	case err != nil:
+	case !found && btAddr != "":
+		err = fmt.Errorf("%s с адресом %s не найден; чтобы искать любой Дито, уберите addr из настроек", name, btAddr)
+	case !found:
+		err = fmt.Errorf("%s не найден", name)
+	}
+	return addr, err
 }
 
 // btSend пишет с подтверждением: без него характеристика запись не принимает.

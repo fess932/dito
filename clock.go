@@ -19,15 +19,16 @@ import (
 
 // config - то, что меняется из веб-интерфейса; хранится в JSON-файле.
 type config struct {
-	Mode       string   `json:"mode"`       // clock: часы и погода, color: заливка цветом
-	Color      string   `json:"color"`      // rrggbb
-	Brightness int      `json:"brightness"` // 0-100
-	TZs        []string `json:"tzs"`        // часовые пояса, между которыми можно переключаться
-	TZ         string   `json:"tz"`         // активный: имя из базы IANA, Local - пояс системы
-	Cities     []string `json:"cities"`     // города для погоды; пустая строка - по IP
-	City       string   `json:"city"`       // активный город
-	ScreenSec  int      `json:"screenSec"`  // как часто перерисовывать экран
-	WeatherMin int      `json:"weatherMin"` // как часто спрашивать погоду
+	Mode       string   `json:"mode"`           // clock: часы и погода, color: заливка цветом
+	Color      string   `json:"color"`          // rrggbb
+	Brightness int      `json:"brightness"`     // 0-100
+	TZs        []string `json:"tzs"`            // часовые пояса, между которыми можно переключаться
+	TZ         string   `json:"tz"`             // активный: имя из базы IANA, Local - пояс системы
+	Cities     []string `json:"cities"`         // города для погоды; пустая строка - по IP
+	City       string   `json:"city"`           // активный город
+	ScreenSec  int      `json:"screenSec"`      // как часто перерисовывать экран
+	WeatherMin int      `json:"weatherMin"`     // как часто спрашивать погоду
+	Addr       string   `json:"addr,omitempty"` // адрес Дито, запоминается при первом подключении; убрать - искать заново
 }
 
 func (c config) validate() error {
@@ -173,7 +174,9 @@ func (s *state) run() {
 			px = render(time.Now().In(loc), w)
 		}
 
+		var addr string
 		err := btDo(func(fresh bool) error {
+			addr = btAddr
 			if fresh {
 				sentBright = -1
 				s.mu.Lock()
@@ -193,6 +196,13 @@ func (s *state) run() {
 		})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
+		}
+		if err == nil && addr != cfg.Addr {
+			c := s.config()
+			c.Addr = addr
+			if err := s.setConfig(c); err != nil {
+				fmt.Fprintln(os.Stderr, "адрес Дито не сохранился:", err)
+			}
 		}
 
 		s.mu.Lock()

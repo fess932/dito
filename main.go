@@ -45,6 +45,7 @@ func main() {
 	switch os.Args[1] {
 	case "clock":
 		s := loadState(env("DITO_CONFIG", "dito.json"))
+		btAddr = s.config().Addr
 		go s.run()
 		addr := env("DITO_ADDR", ":8080")
 		fmt.Println("веб-интерфейс на", addr)
