@@ -197,7 +197,10 @@ func writeAlarm(in alarm) ([]alarm, error) {
 	return nil, fmt.Errorf("%d: %w", in.Index, errNoAlarm)
 }
 
-// syncTime выставляет часы самого Дито: по ним срабатывают будильники. 0x18: год%100, год/100, месяц, день, ч, мин, с.
+// syncTime выставляет часы самого Дито: по ним срабатывают будильники.
+// 0x18: год%100, год/100, месяц, день, ч, мин, с, день недели (0 - воскресенье); Дито отвечает тем же 0x18.
+// Прочитать часы обратно нельзя: в прошивке нет ответа на запрос времени (docs/opcodes.md в ditoo-pro-custom-firmware).
 func syncTime(t time.Time) error {
-	return btSend(frame(0x18, byte(t.Year()%100), byte(t.Year()/100), byte(t.Month()), byte(t.Day()), byte(t.Hour()), byte(t.Minute()), byte(t.Second())))
+	_, err := btRequest(0x18, byte(t.Year()%100), byte(t.Year()/100), byte(t.Month()), byte(t.Day()), byte(t.Hour()), byte(t.Minute()), byte(t.Second()), byte(t.Weekday()))
+	return err
 }

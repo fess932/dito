@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -78,6 +79,8 @@ type state struct {
 	err       string
 	updated   time.Time
 	kick      chan struct{}
+	syncTZ    string    // в каком поясе выставлены часы Дито; пусто - не выставлены с этого подключения
+	syncAt    time.Time // когда Дито подтвердил время
 }
 
 func loadState(path string) *state {
@@ -138,7 +141,7 @@ func (s *state) setConfig(c config) error {
 func (s *state) run() {
 	var fetched time.Time
 	var fetchedCity string
-	sentBright, syncedTZ := -1, ""
+	sentBright := -1
 	for {
 		cfg := s.config()
 		if cfg.Mode == "clock" && (time.Since(fetched) > time.Duration(cfg.WeatherMin)*time.Minute || cfg.City != fetchedCity) {
@@ -172,13 +175,13 @@ func (s *state) run() {
 
 		err := btDo(func(fresh bool) error {
 			if fresh {
-				sentBright, syncedTZ = -1, ""
+				sentBright = -1
+				s.mu.Lock()
+				s.syncTZ = ""
+				s.mu.Unlock()
 			}
-			if cfg.TZ != syncedTZ { // часы самого Дито нужны будильникам
-				if err := syncTime(time.Now().In(loc)); err != nil {
-					return err
-				}
-				syncedTZ = cfg.TZ
+			if err := s.syncDevice(cfg.TZ, false); err != nil {
+				return err
 			}
 			if cfg.Brightness != sentBright {
 				if err := btSend(frame(0x74, byte(cfg.Brightness))); err != nil {
@@ -209,6 +212,29 @@ func (s *state) run() {
 		case <-time.After(wait):
 		}
 	}
+}
+
+// syncDevice выставляет часы Дито в поясе tz, если они ещё не выставлены в нём (или force). Вызывать внутри btDo.
+// Без ответа Дито время считаем не выставленным, но связь не рвём: попробуем при следующей отправке.
+func (s *state) syncDevice(tz string, force bool) error {
+	s.mu.Lock()
+	done := s.syncTZ == tz
+	s.mu.Unlock()
+	if done && !force {
+		return nil
+	}
+	loc, _ := time.LoadLocation(tz)
+	err := syncTime(time.Now().In(loc))
+	if errors.Is(err, errNoReply) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.syncTZ, s.syncAt = tz, time.Now()
+	s.mu.Unlock()
+	return nil
 }
 
 // fetchWeather берёт текущую погоду с wttr.in.

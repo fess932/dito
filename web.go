@@ -21,12 +21,20 @@ type stateJSON struct {
 		Icon string `json:"icon"`
 	} `json:"weather,omitempty"`
 	Updated time.Time `json:"updated"`
+	// часы Дито, какими мы их выставили: стенное время без пояса, чтобы браузер не пересчитывал
+	DeviceTime string    `json:"deviceTime,omitempty"`
+	DeviceTZ   string    `json:"deviceTZ,omitempty"`
+	SyncedAt   time.Time `json:"syncedAt,omitzero"`
 }
 
 func (s *state) snapshot() stateJSON {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	j := stateJSON{Config: s.cfg, Connected: s.connected, Error: s.err, Updated: s.updated}
+	if s.syncTZ != "" {
+		loc, _ := time.LoadLocation(s.syncTZ)
+		j.DeviceTime, j.DeviceTZ, j.SyncedAt = time.Now().In(loc).Format("2006-01-02T15:04:05"), s.syncTZ, s.syncAt
+	}
 	for _, c := range s.px {
 		j.Screen = append(j.Screen, fmt.Sprintf("#%02x%02x%02x", c[0], c[1], c[2]))
 	}
@@ -81,7 +89,15 @@ func (s *state) handler() http.Handler {
 			return
 		}
 		var all []alarm
-		if err := btDo(func(bool) (err error) { all, err = writeAlarm(a); return err }); err != nil {
+		tz := s.config().TZ
+		err := btDo(func(bool) (err error) {
+			if err = s.syncDevice(tz, false); err != nil { // будильник бесполезен, если часы Дито не выставлены
+				return err
+			}
+			all, err = writeAlarm(a)
+			return err
+		})
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}

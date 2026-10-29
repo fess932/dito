@@ -238,8 +238,9 @@ figcaption .mono { color: var(--fg); }
       <button type="button" class="ghost" id="alarmsReload">Прочитать с Дито</button>
       <span id="alarmMsg" class="status" role="status"></span>
     </div>
+    <p class="status" id="devClock" role="status">Часы Дито: жду данные…</p>
     <ul class="alarms" id="alarms"></ul>
-    <span class="hint">Срабатывают по часам самого Дито: программа выставляет их по активному поясу при каждом подключении. Без отмеченных дней будильник звонит один раз.</span>
+    <span class="hint">Срабатывают по часам самого Дито. Программа выставляет их по активному поясу при подключении и при смене пояса, а если не успела — при сохранении будильника. Прочитать часы с Дито нельзя: показано время, которое он подтвердил. Без отмеченных дней будильник звонит один раз.</span>
   </section>
 
   <details>
@@ -438,11 +439,28 @@ function paint() {
   }
   $("caption").innerHTML = parts.join(" · ") || "Жду первый кадр…";
   document.querySelectorAll("[data-tz]").forEach(s => { s.textContent = timeIn(s.dataset.tz); });
+  paintDevClock();
+}
+
+// часы Дито идут сами от момента, когда сервер прислал их время; между опросами досчитываем
+let devBase = 0, devRecv = 0;
+function paintDevClock() {
+  const c = $("devClock");
+  const synced = state.deviceTime && state.deviceTZ === state.config.tz;
+  c.classList.toggle("bad", !synced);
+  if (!synced) {
+    c.textContent = "Часы Дито не выставлены" + (state.deviceTZ ? " в активном поясе" : "") + ": «Сохранить» у будильника выставит их";
+    return;
+  }
+  const t = new Date(devBase + Date.now() - devRecv).toLocaleTimeString("ru-RU", { timeZone: "UTC" });
+  const at = new Date(state.syncedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  c.innerHTML = 'На Дито <span class="mono">' + t + "</span> · " + tzName(state.deviceTZ) + " · выставлено в " + at;
 }
 
 async function refresh(first) {
   try {
     state = await api("api/state");
+    if (state.deviceTime) { devBase = Date.parse(state.deviceTime + "Z"); devRecv = Date.now(); }
     if (first) fillForm(state.config);
     paint();
   } catch {
@@ -485,6 +503,7 @@ function alarmRow(a) {
     setStatus("alarmMsg", "Записываю на Дито…");
     try {
       renderAlarms(await api("api/alarm", { index: a.index, on: on.checked, hour: h, minute: m, weekdays: mask, volume: +vol.value }));
+      refresh(false); // сохранение могло выставить часы Дито
       setStatus("alarmMsg", "Будильник №" + (a.index + 1) + " сохранён на Дито");
     } catch (err) {
       setStatus("alarmMsg", "Не записался: " + err.message, true);
@@ -538,6 +557,7 @@ fillZonePicker();
 drawScreen(null);
 refresh(true).then(loadAlarms);
 setInterval(() => refresh(false), 5000);
+setInterval(() => { if (state) paintDevClock(); }, 1000);
 window.addEventListener("resize", () => state && drawScreen(state.screen));
 </script>
 </body>
