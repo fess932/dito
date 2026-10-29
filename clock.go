@@ -134,13 +134,15 @@ func (s *state) run() {
 			px = render(time.Now().In(loc), w)
 		}
 
+		// Дито рвёт простаивающее соединение, поэтому при ошибке сразу переподключаемся и повторяем один раз
 		var err error
-		if !open {
-			if err = btOpen(); err == nil {
+		for try := 0; try < 2; try++ {
+			if !open {
+				if err = btOpen(); err != nil {
+					break
+				}
 				open, sentBright = true, -1
 			}
-		}
-		if open {
 			if cfg.Brightness != sentBright {
 				if err = btSend(frame(0x74, byte(cfg.Brightness))); err == nil {
 					sentBright = cfg.Brightness
@@ -149,10 +151,11 @@ func (s *state) run() {
 			if err == nil {
 				err = btSend(image16(px))
 			}
-			if err != nil {
-				btClose()
-				open = false
+			if err == nil {
+				break
 			}
+			btClose()
+			open = false
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
