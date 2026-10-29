@@ -133,7 +133,7 @@ type alarm struct {
 	Hour     int  `json:"hour"`
 	Minute   int  `json:"minute"`
 	Weekdays int  `json:"weekdays"` // бит 0 - воскресенье ... бит 6 - суббота; 0 - один раз
-	Mode     int  `json:"mode"`     // звук будильника; из интерфейса не меняется
+	Mode     int  `json:"mode"`     // номер мелодии; какой номер какая - не описано, подбирается прослушиванием (0xA5)
 	Trigger  int  `json:"trigger"`  // что показывать при срабатывании; из интерфейса не меняется
 	FM       int  `json:"fm"`       // частота радио, если будит радио
 	Volume   int  `json:"volume"`
@@ -165,6 +165,8 @@ func (a alarm) validate() error {
 		return fmt.Errorf("дни недели: битовая маска 0-127")
 	case a.Volume < 0 || a.Volume > 100:
 		return fmt.Errorf("громкость будильника: 0-100")
+	case a.Mode < 0 || a.Mode > 255:
+		return fmt.Errorf("мелодия будильника: 0-255")
 	}
 	return nil
 }
@@ -177,7 +179,7 @@ func readAlarms() ([]alarm, error) {
 	return parseAlarms(d), nil
 }
 
-// writeAlarm меняет одну ячейку: поля, которых нет в интерфейсе, берёт с самого Дито. Проверять in.validate() до btDo.
+// writeAlarm меняет одну ячейку: trigger и fm, которых нет в интерфейсе, берёт с самого Дито. Проверять in.validate() до btDo.
 func writeAlarm(in alarm) ([]alarm, error) {
 	all, err := readAlarms()
 	if err != nil {
@@ -187,7 +189,7 @@ func writeAlarm(in alarm) ([]alarm, error) {
 		if cur.Index != in.Index {
 			continue
 		}
-		in.Mode, in.Trigger, in.FM = cur.Mode, cur.Trigger, cur.FM
+		in.Trigger, in.FM = cur.Trigger, cur.FM
 		if err := btSend(frame(0x43, in.payload()...)); err != nil {
 			return nil, err
 		}
@@ -195,6 +197,15 @@ func writeAlarm(in alarm) ([]alarm, error) {
 		return readAlarms()
 	}
 	return nil, fmt.Errorf("%d: %w", in.Index, errNoAlarm)
+}
+
+// alarmListen включает (или выключает) на Дито мелодию будильника: 0xA5 вкл, мелодия, громкость.
+func alarmListen(on bool, mode, volume int) error {
+	b := byte(0)
+	if on {
+		b = 1
+	}
+	return btSend(frame(0xA5, b, byte(mode), byte(volume)))
 }
 
 // syncTime выставляет часы самого Дито: по ним срабатывают будильники.

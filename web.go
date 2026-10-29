@@ -103,6 +103,22 @@ func (s *state) handler() http.Handler {
 		}
 		json.NewEncoder(w).Encode(all)
 	})
+	mux.HandleFunc("POST /api/alarm/listen", func(w http.ResponseWriter, r *http.Request) {
+		var a alarm
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&a); err != nil {
+			http.Error(w, "неверный JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := a.validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := btDo(func(bool) error { return alarmListen(a.On, a.Mode, a.Volume) }); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/info", func(w http.ResponseWriter, r *http.Request) {
 		var items []infoItem
 		if err := btDo(func(bool) (err error) { items, err = readInfo(); return err }); err != nil {
