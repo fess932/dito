@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one narrow control column read top to bottom; the device's 16x16 screen sits in a bezel at the very bottom. */
+/* Layout: one narrow control column read top to bottom; the device's 16x16 screen sits in a bezel near the bottom, device readout folded below it. */
 :root {
   --bg: #eceef2;
   --surface: #ffffff;
@@ -21,9 +21,9 @@
   --font-display: "Silkscreen", ui-monospace, monospace;
   --font-body: "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  /* корпус и светодиоды - физическое устройство, одинаковы в обеих темах */
+  /* корпус и пиксели - физическое устройство, одинаковы в обеих темах */
   --bezel: #0c0d10;
-  --led-off: #1c1e24;
+  --led-off: #16181d;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -49,11 +49,12 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: max(24px, env(safe-area-inset-top, 0px)) max(32px, env(safe-area-inset-bottom, 0px));
 }
-main { max-width: 34rem; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+main { max-width: 36rem; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
 
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 h1 { margin: 0; font: 400 1.75rem/1 var(--font-display); letter-spacing: 0.04em; }
 h1 span { color: var(--accent); }
+h2 { margin: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .pill {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px;
@@ -66,23 +67,20 @@ h1 span { color: var(--accent); }
 .pill.off::before { background: var(--bad); }
 .err { margin: -16px 0 0; font: 0.8125rem/1.4 var(--font-mono); color: var(--bad); overflow-wrap: anywhere; }
 
-form { display: flex; flex-direction: column; gap: 24px; }
+form, section { display: flex; flex-direction: column; gap: 24px; }
+section { gap: 14px; }
 fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-legend {
-  padding: 0 0 4px; font-size: 0.75rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
-}
+legend { padding: 0 0 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 label, .label { font-weight: 500; }
-.hint { font-size: 0.8125rem; color: var(--muted); }
+.hint { font-size: 0.8125rem; color: var(--muted); font-weight: 400; }
 
-input[type="text"], input[type="number"], select {
-  width: 100%; font: inherit; color: var(--fg); background: var(--surface);
+input[type="text"], input[type="number"], input[type="time"], select {
+  width: 100%; min-width: 0; font: inherit; color: var(--fg); background: var(--surface);
   border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px;
 }
-input:focus-visible, select:focus-visible, button:focus-visible, .seg input:focus-visible + span, summary:focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px;
-}
+input[type="number"], input[type="time"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+:is(input, select, button, summary):focus-visible, .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
 .seg label { position: relative; cursor: pointer; }
@@ -91,34 +89,70 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg input:focu
 .seg label + label span { border-left: 1px solid var(--line); }
 .seg input:checked + span { background: var(--accent); color: var(--accent-fg); }
 
-.row { display: flex; align-items: center; gap: 12px; }
+.row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.row > select, .row > input[type="text"] { flex: 1; }
 input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; flex: none; }
 input[type="color"] { width: 48px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; }
-output, .mono { font: 500 0.875rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
-output { min-width: 3.5ch; text-align: right; }
-
+output, .mono { font: 500 0.875rem/1.2 var(--font-mono); font-variant-numeric: tabular-nums; }
+output { min-width: 4ch; text-align: right; }
 .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 14px 20px; }
-input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .unit { color: var(--muted); font-size: 0.875rem; }
-.actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+/* списки поясов и городов: выбор активного + удаление */
+.choices { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.choices li { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; min-width: 0; }
+.choices li + li { border-top: 1px solid var(--line); }
+.choices label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; font-weight: 400; }
+.choices .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choices .mono { color: var(--muted); margin-left: auto; }
+.choices li:has(input:checked) .name { font-weight: 600; }
+
 button {
   font: 600 0.9375rem/1 var(--font-body); color: var(--accent-fg); background: var(--accent);
-  border: 0; border-radius: 8px; padding: 12px 20px; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 8px; padding: 11px 18px; cursor: pointer; flex: none;
 }
-button:disabled { opacity: 0.6; cursor: progress; }
-#msg { font-size: 0.875rem; color: var(--muted); }
-#msg.bad { color: var(--bad); }
+button.ghost { background: transparent; color: var(--fg); border-color: var(--line); font-weight: 500; padding: 9px 14px; }
+button.x { background: transparent; border-color: transparent; color: var(--muted); padding: 6px 10px; font-size: 1.1rem; }
+button.x:hover:not(:disabled) { color: var(--bad); }
+button:disabled { opacity: 0.45; cursor: default; }
+.actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.status { font-size: 0.875rem; color: var(--muted); }
+.status.bad { color: var(--bad); }
+
+/* будильники */
+.alarms { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.alarm { display: grid; grid-template-columns: auto 7.5rem 1fr; align-items: center; gap: 10px 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.alarm:last-child { border-bottom: 1px solid var(--line); }
+.alarm .on { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.alarm .on .mono { color: var(--muted); }
+.days { display: flex; gap: 4px; flex-wrap: wrap; }
+.days button { padding: 6px 0; width: 2.4rem; font: 500 0.8125rem/1 var(--font-body); background: var(--surface); color: var(--muted); border-color: var(--line); }
+.days button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.alarm .vol { grid-column: 1 / 3; display: flex; align-items: center; gap: 10px; font-weight: 400; color: var(--muted); font-size: 0.875rem; }
+.alarm .save { justify-self: end; }
+.alarm.off-row :is(input[type="time"], .days) { opacity: 0.55; }
+@media (max-width: 30rem) {
+  .alarm { grid-template-columns: auto 1fr; }
+  .alarm .days { grid-column: 1 / -1; }
+  .alarm .vol { grid-column: 1 / -1; }
+  .alarm .save { grid-column: 1 / -1; justify-self: start; }
+}
 
 details { border-top: 1px solid var(--line); padding-top: 14px; }
 summary { cursor: pointer; font-weight: 600; }
-summary .hint { font-weight: 400; margin-left: 6px; }
+summary .hint { margin-left: 6px; }
 .soon { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0 24px; }
-.soon li { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--line); min-width: 0; }
-.soon b { font-weight: 500; }
-.soon .op { font: 0.75rem/1.3 var(--font-mono); color: var(--muted); }
+.soon li, .info > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.soon b, .info b { font-weight: 500; }
+.op { font: 0.75rem/1.3 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
+.info { margin-top: 10px; }
+.info .val { font: 500 0.9375rem/1.4 var(--font-mono); overflow-wrap: anywhere; }
+.info .val.none { color: var(--muted); font-family: var(--font-body); font-weight: 400; }
+.info-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
 
 figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.bezel { width: min(100%, 22rem); padding: 18px; background: var(--bezel); border-radius: 18px; box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 30px rgba(0,0,0,0.25); }
+.bezel { width: min(100%, 22rem); padding: 18px; background: var(--bezel); border-radius: 22px; box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 30px rgba(0,0,0,0.25); }
 canvas { display: block; width: 100%; aspect-ratio: 1; max-width: 100%; }
 figcaption { text-align: center; font-size: 0.875rem; color: var(--muted); }
 figcaption .mono { color: var(--fg); }
@@ -153,15 +187,27 @@ figcaption .mono { color: var(--fg); }
     </fieldset>
 
     <fieldset>
-      <legend>Время и погода</legend>
+      <legend>Время</legend>
       <div class="field">
-        <label for="tz">Часовой пояс</label>
-        <select id="tz"></select>
+        <span class="label" id="tzLabel">Часовые пояса <span class="hint">отметьте тот, что на экране</span></span>
+        <ul class="choices" id="tzList" aria-labelledby="tzLabel"></ul>
+        <div class="row">
+          <select id="tzAdd" aria-label="Пояс, который добавить"></select>
+          <button type="button" class="ghost" id="tzAddBtn">Добавить</button>
+        </div>
       </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Погода</legend>
       <div class="field">
-        <label for="city">Город для погоды</label>
-        <input type="text" id="city" maxlength="100" placeholder="Определить по IP" autocomplete="address-level2">
-        <span class="hint">Как в wttr.in: «Belgrade», «Москва», «~Eiffel Tower». Пусто — по IP мини-ПК.</span>
+        <span class="label" id="cityLabel">Города <span class="hint">отметьте тот, чья погода на экране</span></span>
+        <ul class="choices" id="cityList" aria-labelledby="cityLabel"></ul>
+        <div class="row">
+          <input type="text" id="cityAdd" maxlength="100" placeholder="Belgrade, Москва, ~Eiffel Tower" aria-label="Город, который добавить">
+          <button type="button" class="ghost" id="cityAddBtn">Добавить</button>
+        </div>
+        <span class="hint">Названия как в wttr.in. Пустое поле добавит «по IP мини-ПК».</span>
       </div>
     </fieldset>
 
@@ -177,16 +223,26 @@ figcaption .mono { color: var(--fg); }
           <div class="row"><input type="number" id="weatherMin" min="5" max="180" step="1" value="10" inputmode="numeric"><span class="unit">мин</span></div>
         </div>
       </div>
-      <span class="hint">Экран: 1–3600 с, при 60 кадр уходит ровно в начале минуты; часы меняются раз в минуту, чаще нужно только для будущих анимаций. Погода: 5–180 мин, чаще wttr.in не любит.</span>
+      <span class="hint">Экран: 1–3600 с, при 60 кадр уходит ровно в начале минуты. Погода: 5–180 мин, чаще wttr.in не любит.</span>
     </fieldset>
 
     <div class="actions">
       <button type="submit" id="apply">Применить</button>
-      <span id="msg" role="status"></span>
+      <span id="msg" class="status" role="status"></span>
     </div>
   </form>
 
-  <details id="soonBox">
+  <section aria-labelledby="alarmsTitle">
+    <div class="actions">
+      <h2 id="alarmsTitle">Будильники</h2>
+      <button type="button" class="ghost" id="alarmsReload">Прочитать с Дито</button>
+      <span id="alarmMsg" class="status" role="status"></span>
+    </div>
+    <ul class="alarms" id="alarms"></ul>
+    <span class="hint">Срабатывают по часам самого Дито: программа выставляет их по активному поясу при каждом подключении. Без отмеченных дней будильник звонит один раз.</span>
+  </section>
+
+  <details>
     <summary>Скоро <span class="hint">команды BLE, которые уже разобраны, но ещё не подключены</span></summary>
     <ul class="soon">
       <li><b>Встроенные циферблаты</b><span class="hint">стиль, 12/24 часа, цвет</span><span class="op">0x45</span></li>
@@ -195,13 +251,12 @@ figcaption .mono { color: var(--fg); }
       <li><b>Анимации и GIF</b><span class="hint">покадровая загрузка 16×16</span><span class="op">0x49</span></li>
       <li><b>Таймер и секундомер</b><span class="hint">обратный отсчёт, старт и стоп</span><span class="op">0x72</span></li>
       <li><b>Табло и шумомер</b><span class="hint">счёт красных и синих до 999</span><span class="op">0x72</span></li>
-      <li><b>Будильники и памятные даты</b><span class="hint">с громкостью и днями недели</span><span class="op">0x43 · 0x54</span></li>
+      <li><b>Памятные даты</b><span class="hint">дата, время и подпись</span><span class="op">0x53 · 0x54</span></li>
       <li><b>Музыка</b><span class="hint">громкость, пауза, треки, SD-карта</span><span class="op">0x08 · 0x0a</span></li>
       <li><b>Подсветка клавиатуры</b><span class="hint">вкл/выкл и эффекты</span><span class="op">0x23</span></li>
       <li><b>Встроенные игры</b><span class="hint">запуск и кнопки</span><span class="op">0xa0</span></li>
-      <li><b>Синхронизация времени</b><span class="hint">часы самого Дито</span><span class="op">0x18</span></li>
-      <li><b>Батарея и прошивка</b><span class="hint">заряд и версия в шапке</span><span class="op">get</span></li>
-      <li><b>Энергосбережение</b><span class="hint">автовыключение, ночной режим</span><span class="op">0x40</span></li>
+      <li><b>Таймер сна и энергосбережение</b><span class="hint">автовыключение, засыпание под звук</span><span class="op">0xa3 · 0xab · 0xb2</span></li>
+      <li><b>Свои настройки Дито</b><span class="hint">громкость и канал при включении, имя</span><span class="op">0xbb · 0x8a · 0x75</span></li>
     </ul>
   </details>
 
@@ -209,30 +264,104 @@ figcaption .mono { color: var(--fg); }
     <div class="bezel"><canvas id="screen" width="320" height="320" role="img" aria-label="Экран Дито 16 на 16"></canvas></div>
     <figcaption id="caption">Жду первый кадр…</figcaption>
   </figure>
+
+  <details id="infoBox">
+    <summary>Всё, что Дито отдаёт по BLE <span class="hint">настройки, которые можно прочитать с устройства</span></summary>
+    <div class="info-head">
+      <button type="button" class="ghost" id="infoReload">Прочитать заново</button>
+      <span id="infoMsg" class="status" role="status"></span>
+    </div>
+    <div class="info" id="info"></div>
+  </details>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
 const ICONS = { sun: "ясно", partly: "переменная облачность", cloud: "облачно", rain: "дождь", snow: "снег", thunder: "гроза" };
+const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]; // бит на Дито: Вс - 0, Пн - 1 ... Сб - 6
+const dayBit = i => 1 << ((i + 1) % 7);
+const MAX_ITEMS = 10;
 let state = null;
+let tzs = [], tz = "Local", cities = [], city = "";
 
-// часовые пояса браузера; Local - пояс самого мини-ПК
-function fillZones(current) {
-  const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : []).slice();
-  if (current && current !== "Local" && !zones.includes(current)) zones.unshift(current);
-  $("tz").replaceChildren(new Option("Системный (как на мини-ПК)", "Local"), ...zones.map(z => new Option(z.replaceAll("_", " "), z)));
-  $("tz").value = current || "Local";
+function el(tag, props = {}, ...kids) {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...kids);
+  return e;
 }
 
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
+  return r.json();
+}
+
+function setStatus(id, text, bad) {
+  $(id).textContent = text;
+  $(id).classList.toggle("bad", !!bad);
+}
+
+/* ---- пояса и города ---- */
+const tzName = z => z === "Local" ? "Системный (как на мини-ПК)" : z.replaceAll("_", " ");
+const cityName = c => c === "" ? "По IP мини-ПК" : c;
+function timeIn(z) {
+  if (z === "Local") return "";
+  try { return new Date().toLocaleTimeString("ru-RU", { timeZone: z, hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
+}
+
+function choiceList(listId, items, active, label, extra, onPick, onRemove) {
+  $(listId).replaceChildren(...items.map((v, i) => {
+    const radio = el("input", { type: "radio", name: listId, id: listId + i, checked: v === active });
+    radio.addEventListener("change", () => onPick(v));
+    const del = el("button", { type: "button", className: "x", textContent: "×", disabled: items.length === 1, title: "Убрать" });
+    del.setAttribute("aria-label", "Убрать " + label(v));
+    del.addEventListener("click", () => onRemove(v));
+    const lab = el("label", { htmlFor: listId + i }, radio, el("span", { className: "name", textContent: label(v) }));
+    if (extra) lab.append(extra(v));
+    return el("li", {}, lab, del);
+  }));
+}
+
+function renderTz() {
+  choiceList("tzList", tzs, tz, tzName,
+    z => el("span", { className: "mono", textContent: timeIn(z), dataset: { tz: z } }),
+    z => { tz = z; },
+    z => { tzs = tzs.filter(x => x !== z); if (tz === z) tz = tzs[0]; renderTz(); });
+  $("tzAddBtn").disabled = tzs.length >= MAX_ITEMS;
+}
+function renderCities() {
+  choiceList("cityList", cities, city, cityName, null,
+    c => { city = c; },
+    c => { cities = cities.filter(x => x !== c); if (city === c) city = cities[0]; renderCities(); });
+  $("cityAddBtn").disabled = cities.length >= MAX_ITEMS;
+}
+
+function fillZonePicker() {
+  const zones = Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : [];
+  $("tzAdd").replaceChildren(new Option(tzName("Local"), "Local"), ...zones.map(z => new Option(tzName(z), z)));
+  try { $("tzAdd").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch {}
+}
+
+$("tzAddBtn").addEventListener("click", () => {
+  const z = $("tzAdd").value;
+  if (!tzs.includes(z) && tzs.length < MAX_ITEMS) { tzs.push(z); tz = z; renderTz(); }
+});
+$("cityAddBtn").addEventListener("click", () => {
+  const c = $("cityAdd").value.trim();
+  if (!cities.includes(c) && cities.length < MAX_ITEMS) { cities.push(c); city = c; renderCities(); }
+  $("cityAdd").value = "";
+});
+$("cityAdd").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("cityAddBtn").click(); } });
+
+/* ---- форма настроек ---- */
 function fillForm(c) {
   $(c.mode === "color" ? "modeColor" : "modeClock").checked = true;
   $("color").value = "#" + c.color;
   $("brightness").value = c.brightness;
-  $("city").value = c.city || "";
   $("screenSec").value = c.screenSec;
   $("weatherMin").value = c.weatherMin;
-  fillZones(c.tz);
-  syncLabels();
+  tzs = [...c.tzs]; tz = c.tz; cities = [...c.cities]; city = c.city;
+  renderTz(); renderCities(); syncLabels();
 }
 
 function syncLabels() {
@@ -241,91 +370,171 @@ function syncLabels() {
   $("brightOut").textContent = $("brightness").value + "%";
 }
 
+$("cfg").addEventListener("input", syncLabels);
+$("cfg").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("apply").disabled = true;
+  setStatus("msg", "Отправляю…");
+  try {
+    state = await api("api/config", {
+      mode: $("modeColor").checked ? "color" : "clock",
+      color: $("color").value.slice(1),
+      brightness: +$("brightness").value,
+      tzs, tz, cities, city,
+      screenSec: +$("screenSec").value,
+      weatherMin: +$("weatherMin").value,
+    });
+    paint();
+    setStatus("msg", "Сохранено, Дито обновится через пару секунд");
+    setTimeout(() => refresh(false), 2500); // кадр уходит на Дито асинхронно
+  } catch (err) {
+    setStatus("msg", "Не сохранилось: " + err.message, true);
+  } finally {
+    $("apply").disabled = false;
+  }
+});
+
+/* ---- экран 16x16: квадратные пиксели с зазором, как у Дито ---- */
 function drawScreen(pixels) {
   const cv = $("screen"), dpr = window.devicePixelRatio || 1;
   const size = Math.round(cv.clientWidth * dpr) || 320;
   if (cv.width !== size) { cv.width = size; cv.height = size; }
-  const g = cv.getContext("2d"), cell = size / 16, r = cell * 0.42;
+  const g = cv.getContext("2d"), cell = size / 16, gap = Math.max(1, cell * 0.1), side = cell - gap;
   const css = getComputedStyle(document.documentElement);
   g.fillStyle = css.getPropertyValue("--bezel").trim();
   g.fillRect(0, 0, size, size);
   const off = css.getPropertyValue("--led-off").trim();
   for (let i = 0; i < 256; i++) {
     const c = pixels ? pixels[i] : "#000000", lit = c !== "#000000";
-    const x = (i % 16 + 0.5) * cell, y = (Math.floor(i / 16) + 0.5) * cell;
-    g.shadowBlur = lit ? cell * 0.5 : 0;
+    const x = (i % 16) * cell + gap / 2, y = Math.floor(i / 16) * cell + gap / 2;
+    g.shadowBlur = lit ? cell * 0.3 : 0;
     g.shadowColor = c;
     g.fillStyle = lit ? c : off;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.beginPath();
+    g.roundRect ? g.roundRect(x, y, side, side, cell * 0.06) : g.rect(x, y, side, side);
+    g.fill();
   }
   g.shadowBlur = 0;
 }
 
 function paint() {
   if (!state) return;
-  const link = $("link");
-  link.className = "pill " + (state.connected ? "on" : "off");
-  link.textContent = state.connected ? "на связи" : "нет связи";
+  $("link").className = "pill " + (state.connected ? "on" : "off");
+  $("link").textContent = state.connected ? "на связи" : "нет связи";
   $("linkErr").hidden = !state.error;
   $("linkErr").textContent = state.error || "";
   drawScreen(state.screen);
   const parts = [];
   if (state.updated && !state.updated.startsWith("0001")) {
-    parts.push('Отправлено в <span class="mono">' + new Date(state.updated).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + "</span>");
+    parts.push('Отправлено в <span class="mono">' + new Date(state.updated).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + "</span>");
   }
   if (state.config.mode === "clock") {
+    const where = cityName(state.config.city);
     parts.push(state.weather
-      ? '<span class="mono">' + state.weather.temp + "°</span> " + (ICONS[state.weather.icon] || "")
-      : "погода не загрузилась");
+      ? where + ': <span class="mono">' + state.weather.temp + "°</span> " + (ICONS[state.weather.icon] || "")
+      : where + ": погода не загрузилась");
   }
   $("caption").innerHTML = parts.join(" · ") || "Жду первый кадр…";
+  document.querySelectorAll("[data-tz]").forEach(s => { s.textContent = timeIn(s.dataset.tz); });
 }
 
 async function refresh(first) {
   try {
-    const r = await fetch("api/state");
-    if (!r.ok) throw new Error(await r.text());
-    state = await r.json();
+    state = await api("api/state");
     if (first) fillForm(state.config);
     paint();
-  } catch (e) {
+  } catch {
     $("link").className = "pill off";
     $("link").textContent = "сервер не отвечает";
   }
 }
 
-$("cfg").addEventListener("input", syncLabels);
-$("cfg").addEventListener("submit", async e => {
-  e.preventDefault();
-  const body = {
-    mode: $("modeColor").checked ? "color" : "clock",
-    color: $("color").value.slice(1),
-    brightness: +$("brightness").value,
-    tz: $("tz").value,
-    city: $("city").value.trim(),
-    screenSec: +$("screenSec").value,
-    weatherMin: +$("weatherMin").value,
-  };
-  $("apply").disabled = true;
-  $("msg").className = "";
-  $("msg").textContent = "Отправляю…";
-  try {
-    const r = await fetch("api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error((await r.text()).trim());
-    state = await r.json();
-    paint();
-    $("msg").textContent = "Сохранено, Дито обновится через пару секунд";
-    setTimeout(() => refresh(false), 2500); // кадр уходит на Дито асинхронно
-  } catch (err) {
-    $("msg").className = "bad";
-    $("msg").textContent = "Не сохранилось: " + err.message;
-  } finally {
-    $("apply").disabled = false;
-  }
-});
+/* ---- будильники ---- */
+const pad = n => String(n).padStart(2, "0");
 
+function alarmRow(a) {
+  const id = "al" + a.index;
+  const on = el("input", { type: "checkbox", id: id + "on", checked: a.on });
+  const time = el("input", { type: "time", id: id + "time", value: pad(a.hour) + ":" + pad(a.minute), required: true });
+  time.setAttribute("aria-label", "Время будильника " + (a.index + 1));
+  let mask = a.weekdays;
+  const days = el("div", { className: "days", role: "group" });
+  days.setAttribute("aria-label", "Дни недели");
+  DAYS.forEach((d, i) => {
+    const b = el("button", { type: "button", textContent: d });
+    b.setAttribute("aria-pressed", String(!!(mask & dayBit(i))));
+    b.addEventListener("click", () => { mask ^= dayBit(i); b.setAttribute("aria-pressed", String(!!(mask & dayBit(i)))); });
+    days.append(b);
+  });
+  const vol = el("input", { type: "range", id: id + "vol", min: 0, max: 100, step: 5, value: a.volume });
+  const volOut = el("output", { textContent: a.volume });
+  vol.addEventListener("input", () => { volOut.textContent = vol.value; });
+  const save = el("button", { type: "button", className: "ghost save", textContent: "Сохранить" });
+  const li = el("li", { className: "alarm" + (a.on ? "" : " off-row") },
+    el("label", { className: "on", htmlFor: id + "on" }, on, el("span", { className: "mono", textContent: "№" + (a.index + 1) })),
+    time, days,
+    el("label", { className: "vol", htmlFor: id + "vol" }, "Громкость", vol, volOut),
+    save);
+  on.addEventListener("change", () => li.classList.toggle("off-row", !on.checked));
+  save.addEventListener("click", async () => {
+    const [h, m] = time.value.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) { setStatus("alarmMsg", "Укажите время будильника №" + (a.index + 1), true); return; }
+    save.disabled = true;
+    setStatus("alarmMsg", "Записываю на Дито…");
+    try {
+      renderAlarms(await api("api/alarm", { index: a.index, on: on.checked, hour: h, minute: m, weekdays: mask, volume: +vol.value }));
+      setStatus("alarmMsg", "Будильник №" + (a.index + 1) + " сохранён на Дито");
+    } catch (err) {
+      setStatus("alarmMsg", "Не записался: " + err.message, true);
+      save.disabled = false;
+    }
+  });
+  return li;
+}
+
+function renderAlarms(list) {
+  $("alarms").replaceChildren(...list.map(alarmRow));
+}
+
+async function loadAlarms() {
+  $("alarmsReload").disabled = true;
+  setStatus("alarmMsg", "Читаю с Дито…");
+  try {
+    const list = await api("api/alarms");
+    renderAlarms(list);
+    setStatus("alarmMsg", list.length ? "" : "Дито не вернул ни одной ячейки");
+  } catch (err) {
+    setStatus("alarmMsg", "Не прочитались: " + err.message, true);
+  } finally {
+    $("alarmsReload").disabled = false;
+  }
+}
+$("alarmsReload").addEventListener("click", loadAlarms);
+
+/* ---- всё, что Дито отдаёт ---- */
+async function loadInfo() {
+  $("infoReload").disabled = true;
+  setStatus("infoMsg", "Опрашиваю Дито, это до 20 секунд…");
+  try {
+    const items = await api("api/info");
+    $("info").replaceChildren(...items.map(it => el("div", {},
+      el("b", { textContent: it.title }),
+      el("span", { className: "val" + (it.value ? "" : " none"), textContent: it.value || it.error }),
+      el("span", { className: "hint", textContent: it.hint }),
+      el("span", { className: "op", textContent: it.op + (it.raw ? " → " + it.raw : "") }))));
+    setStatus("infoMsg", "Прочитано в " + new Date().toLocaleTimeString("ru-RU"));
+  } catch (err) {
+    setStatus("infoMsg", "Не прочиталось: " + err.message, true);
+  } finally {
+    $("infoReload").disabled = false;
+  }
+}
+$("infoReload").addEventListener("click", loadInfo);
+$("infoBox").addEventListener("toggle", () => { if ($("infoBox").open && !$("info").childElementCount) loadInfo(); });
+
+fillZonePicker();
 drawScreen(null);
-refresh(true);
+refresh(true).then(loadAlarms);
 setInterval(() => refresh(false), 5000);
 window.addEventListener("resize", () => state && drawScreen(state.screen));
 </script>

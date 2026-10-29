@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -17,13 +18,15 @@ import (
 
 // config - то, что меняется из веб-интерфейса; хранится в JSON-файле.
 type config struct {
-	Mode       string `json:"mode"`       // clock: часы и погода, color: заливка цветом
-	Color      string `json:"color"`      // rrggbb
-	Brightness int    `json:"brightness"` // 0-100
-	TZ         string `json:"tz"`         // имя из базы IANA, Local - часовой пояс системы
-	City       string `json:"city"`       // пусто: wttr.in определит город по IP
-	ScreenSec  int    `json:"screenSec"`  // как часто перерисовывать экран
-	WeatherMin int    `json:"weatherMin"` // как часто спрашивать погоду
+	Mode       string   `json:"mode"`       // clock: часы и погода, color: заливка цветом
+	Color      string   `json:"color"`      // rrggbb
+	Brightness int      `json:"brightness"` // 0-100
+	TZs        []string `json:"tzs"`        // часовые пояса, между которыми можно переключаться
+	TZ         string   `json:"tz"`         // активный: имя из базы IANA, Local - пояс системы
+	Cities     []string `json:"cities"`     // города для погоды; пустая строка - по IP
+	City       string   `json:"city"`       // активный город
+	ScreenSec  int      `json:"screenSec"`  // как часто перерисовывать экран
+	WeatherMin int      `json:"weatherMin"` // как часто спрашивать погоду
 }
 
 func (c config) validate() error {
@@ -36,11 +39,24 @@ func (c config) validate() error {
 	if c.Brightness < 0 || c.Brightness > 100 {
 		return fmt.Errorf("яркость: 0-100")
 	}
-	if _, err := time.LoadLocation(c.TZ); err != nil {
-		return fmt.Errorf("часовой пояс %q не найден", c.TZ)
+	if len(c.TZs) == 0 || len(c.TZs) > 10 || len(c.Cities) == 0 || len(c.Cities) > 10 {
+		return fmt.Errorf("в списках поясов и городов от 1 до 10 записей")
 	}
-	if len(c.City) > 100 {
-		return fmt.Errorf("город: слишком длинное название")
+	for _, tz := range c.TZs {
+		if _, err := time.LoadLocation(tz); err != nil {
+			return fmt.Errorf("часовой пояс %q не найден", tz)
+		}
+	}
+	for _, city := range c.Cities {
+		if len(city) > 100 {
+			return fmt.Errorf("город %.20q...: слишком длинное название", city)
+		}
+	}
+	if !slices.Contains(c.TZs, c.TZ) {
+		return fmt.Errorf("активный пояс %q не из списка", c.TZ)
+	}
+	if !slices.Contains(c.Cities, c.City) {
+		return fmt.Errorf("активный город %q не из списка", c.City)
 	}
 	if c.ScreenSec < 1 || c.ScreenSec > 3600 {
 		return fmt.Errorf("обновление экрана: от 1 секунды до часа")
@@ -66,10 +82,19 @@ type state struct {
 
 func loadState(path string) *state {
 	s := &state{path: path, kick: make(chan struct{}, 1), px: &[256]rgb{},
-		cfg: config{Mode: "clock", Color: "ff7800", Brightness: 50, TZ: "Local", ScreenSec: 60, WeatherMin: 10}}
+		cfg: config{Mode: "clock", Color: "ff7800", Brightness: 50, TZs: []string{"Local"}, TZ: "Local",
+			Cities: []string{""}, ScreenSec: 60, WeatherMin: 10}}
 	if b, err := os.ReadFile(path); err == nil {
-		c := s.cfg // поля, которых нет в старом файле, остаются по умолчанию
-		if err := json.Unmarshal(b, &c); err != nil || c.validate() != nil {
+		c := s.config() // поля, которых нет в старом файле, остаются по умолчанию
+		c.TZs, c.Cities = nil, nil
+		err := json.Unmarshal(b, &c)
+		if len(c.TZs) == 0 { // файл до появления списков
+			c.TZs = []string{c.TZ}
+		}
+		if len(c.Cities) == 0 {
+			c.Cities = []string{c.City}
+		}
+		if err != nil || c.validate() != nil {
 			fmt.Fprintln(os.Stderr, "настройки", path, "повреждены, беру по умолчанию")
 		} else {
 			s.cfg = c
@@ -78,10 +103,13 @@ func loadState(path string) *state {
 	return s
 }
 
+// config отдаёт копию: списки не делят память с s.cfg, их можно менять и декодировать в них
 func (s *state) config() config {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.cfg
+	c := s.cfg
+	c.TZs, c.Cities = slices.Clone(c.TZs), slices.Clone(c.Cities)
+	return c
 }
 
 // setConfig сохраняет настройки (через временный файл, чтобы не испортить их при сбое) и будит цикл отправки.
@@ -110,7 +138,7 @@ func (s *state) setConfig(c config) error {
 func (s *state) run() {
 	var fetched time.Time
 	var fetchedCity string
-	open, sentBright := false, -1
+	sentBright, syncedTZ := -1, ""
 	for {
 		cfg := s.config()
 		if cfg.Mode == "clock" && (time.Since(fetched) > time.Duration(cfg.WeatherMin)*time.Minute || cfg.City != fetchedCity) {
@@ -127,6 +155,7 @@ func (s *state) run() {
 			fetched, fetchedCity = time.Now(), cfg.City
 		}
 
+		loc, _ := time.LoadLocation(cfg.TZ)
 		var px *[256]rgb
 		if cfg.Mode == "color" {
 			c, _ := hex.DecodeString(cfg.Color)
@@ -135,42 +164,36 @@ func (s *state) run() {
 				px[i] = rgb(c)
 			}
 		} else {
-			loc, _ := time.LoadLocation(cfg.TZ)
 			s.mu.Lock()
 			w := s.w
 			s.mu.Unlock()
 			px = render(time.Now().In(loc), w)
 		}
 
-		// Дито рвёт простаивающее соединение, поэтому при ошибке сразу переподключаемся и повторяем один раз
-		var err error
-		for range 2 {
-			if !open {
-				if err = btOpen(); err != nil {
-					break
+		err := btDo(func(fresh bool) error {
+			if fresh {
+				sentBright, syncedTZ = -1, ""
+			}
+			if cfg.TZ != syncedTZ { // часы самого Дито нужны будильникам
+				if err := syncTime(time.Now().In(loc)); err != nil {
+					return err
 				}
-				open, sentBright = true, -1
+				syncedTZ = cfg.TZ
 			}
 			if cfg.Brightness != sentBright {
-				if err = btSend(frame(0x74, byte(cfg.Brightness))); err == nil {
-					sentBright = cfg.Brightness
+				if err := btSend(frame(0x74, byte(cfg.Brightness))); err != nil {
+					return err
 				}
+				sentBright = cfg.Brightness
 			}
-			if err == nil {
-				err = btSend(image16(px))
-			}
-			if err == nil {
-				break
-			}
-			btClose()
-			open = false
-		}
+			return btSend(image16(px))
+		})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
 
 		s.mu.Lock()
-		s.px, s.connected, s.updated, s.err = px, open, time.Now(), ""
+		s.px, s.connected, s.updated, s.err = px, err == nil, time.Now(), ""
 		if err != nil {
 			s.err = err.Error()
 		}

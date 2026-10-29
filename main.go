@@ -84,6 +84,7 @@ func main() {
 		fail(fmt.Errorf("unknown command %q", os.Args[1]))
 	}
 
+	verbose = true
 	if err := btOpen(); err != nil {
 		fail(err)
 	}

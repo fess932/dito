@@ -62,5 +62,38 @@ func (s *state) handler() http.Handler {
 		}
 		json.NewEncoder(w).Encode(s.snapshot())
 	})
+	mux.HandleFunc("GET /api/alarms", func(w http.ResponseWriter, r *http.Request) {
+		var all []alarm
+		if err := btDo(func(bool) (err error) { all, err = readAlarms(); return err }); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		json.NewEncoder(w).Encode(all)
+	})
+	mux.HandleFunc("POST /api/alarm", func(w http.ResponseWriter, r *http.Request) {
+		var a alarm
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&a); err != nil {
+			http.Error(w, "неверный JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := a.validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		var all []alarm
+		if err := btDo(func(bool) (err error) { all, err = writeAlarm(a); return err }); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		json.NewEncoder(w).Encode(all)
+	})
+	mux.HandleFunc("GET /api/info", func(w http.ResponseWriter, r *http.Request) {
+		var items []infoItem
+		if err := btDo(func(bool) (err error) { items, err = readInfo(); return err }); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		json.NewEncoder(w).Encode(items)
+	})
 	return mux
 }
