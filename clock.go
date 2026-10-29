@@ -200,9 +200,13 @@ func (s *state) run() {
 		s.mu.Unlock()
 
 		period := time.Duration(cfg.ScreenSec) * time.Second
+		wait := time.Until(time.Now().Truncate(period).Add(period)) // по границе периода: при 60 с - ровно в начале минуты
+		if err != nil {
+			wait = min(wait, 10*time.Second) // связь не поднялась - пробуем скоро, а не через период
+		}
 		select {
 		case <-s.kick:
-		case <-time.After(time.Until(time.Now().Truncate(period).Add(period))): // по границе периода: при 60 с - ровно в начале минуты
+		case <-time.After(wait):
 		}
 	}
 }
