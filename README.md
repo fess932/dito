@@ -21,17 +21,26 @@ FE EF AA 55 | len (LE16) | 01 | номер пакета (LE32) | команда 
 
 `len` = команда + данные + 7, сумма считается по байтам от `len` до конца данных. Устройство подтверждает каждый пакет кадром `01 … 04 33 55 <номер> … 02`. Картинка: команда `0x44`, данные `00 0A 0A 04` и кадр `AA` с палитрой, индексы пикселей упакованы с младшего бита.
 
-## Запуск на мини-ПК (Linux)
+## Запуск на мини-ПК (Linux, podman)
 
 ```sh
-sudo apt install bluez && sudo systemctl enable --now bluetooth
+sudo dnf install bluez podman podman-compose   # или apt
+sudo systemctl enable --now bluetooth podman-restart
 bluetoothctl power on
-docker compose up -d
+
+sudo mkdir -p /srv/composes/dito && cd /srv/composes/dito   # сюда compose.yaml из репы
+sudo podman-compose up -d
+```
+
+Обновить на новый образ: podman-compose не пересоздаёт контейнер сам, поэтому
+
+```sh
+sudo podman-compose pull && sudo podman-compose down && sudo podman-compose up -d
 ```
 
 Интерфейс: `http://<мини-ПК>:8080`. Настройки (режим, цвет, яркость, часовой пояс, город) хранятся в `./data/dito.json`.
 
-Контейнер говорит с BlueZ хоста через `/run/dbus` и работает от root. Если подключиться к D-Bus не выходит из-за AppArmor, добавьте в `compose.yaml` строку `privileged: true`.
+Контейнер говорит с BlueZ хоста через `/run/dbus` и работает от root, поэтому podman нужен rootful (`sudo`). После перезагрузки контейнер поднимает `podman-restart.service`. С Docker тот же `compose.yaml` тоже работает.
 
 Образ `ghcr.io/fess932/dito` собирается в GitHub Actions под amd64 и arm64 при каждом пуше в `main`.
 
