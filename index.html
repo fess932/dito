@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ditoo Pult</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow control column read top to bottom; the device's 16x16 screen sits in a bezel at the very bottom. */
+:root {
+  --bg: #eceef2;
+  --surface: #ffffff;
+  --fg: #1a1d23;
+  --muted: #5e6572;
+  --line: #d3d8e0;
+  --accent: #d45f00;
+  --accent-fg: #ffffff;
+  --good: #1f8a4c;
+  --bad: #c0392b;
+  --font-display: "Silkscreen", ui-monospace, monospace;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* корпус и светодиоды - физическое устройство, одинаковы в обеих темах */
+  --bezel: #0c0d10;
+  --led-off: #1c1e24;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --surface: #1a1d23; --fg: #e7e9ee; --muted: #9aa1ae; --line: #2b3039;
+    --accent: #ff8a24; --accent-fg: #17120c; --good: #46c07a; --bad: #ff6b5b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #1a1d23; --fg: #e7e9ee; --muted: #9aa1ae; --line: #2b3039;
+  --accent: #ff8a24; --accent-fg: #17120c; --good: #46c07a; --bad: #ff6b5b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: max(24px, env(safe-area-inset-top, 0px)) max(32px, env(safe-area-inset-bottom, 0px));
+}
+main { max-width: 34rem; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font: 400 1.75rem/1 var(--font-display); letter-spacing: 0.04em; }
+h1 span { color: var(--accent); }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px;
+  font-size: 0.8125rem; color: var(--muted); background: var(--surface);
+}
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pill.on { color: var(--good); }
+.pill.on::before { background: var(--good); }
+.pill.off { color: var(--bad); }
+.pill.off::before { background: var(--bad); }
+.err { margin: -16px 0 0; font: 0.8125rem/1.4 var(--font-mono); color: var(--bad); overflow-wrap: anywhere; }
+
+form { display: flex; flex-direction: column; gap: 24px; }
+fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+legend {
+  padding: 0 0 4px; font-size: 0.75rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+}
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+label, .label { font-weight: 500; }
+.hint { font-size: 0.8125rem; color: var(--muted); }
+
+input[type="text"], select {
+  width: 100%; font: inherit; color: var(--fg); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px;
+}
+input:focus-visible, select:focus-visible, button:focus-visible, .seg input:focus-visible + span, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg label { position: relative; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: block; padding: 9px 12px; text-align: center; font-weight: 500; color: var(--muted); }
+.seg label + label span { border-left: 1px solid var(--line); }
+.seg input:checked + span { background: var(--accent); color: var(--accent-fg); }
+
+.row { display: flex; align-items: center; gap: 12px; }
+input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+input[type="color"] { width: 48px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; }
+output, .mono { font: 500 0.875rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+output { min-width: 3.5ch; text-align: right; }
+
+.actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+button {
+  font: 600 0.9375rem/1 var(--font-body); color: var(--accent-fg); background: var(--accent);
+  border: 0; border-radius: 8px; padding: 12px 20px; cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: progress; }
+#msg { font-size: 0.875rem; color: var(--muted); }
+#msg.bad { color: var(--bad); }
+
+details { border-top: 1px solid var(--line); padding-top: 14px; }
+summary { cursor: pointer; font-weight: 600; }
+summary .hint { font-weight: 400; margin-left: 6px; }
+.soon { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0 24px; }
+.soon li { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.soon b { font-weight: 500; }
+.soon .op { font: 0.75rem/1.3 var(--font-mono); color: var(--muted); }
+
+figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.bezel { width: min(100%, 22rem); padding: 18px; background: var(--bezel); border-radius: 18px; box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 30px rgba(0,0,0,0.25); }
+canvas { display: block; width: 100%; aspect-ratio: 1; max-width: 100%; }
+figcaption { text-align: center; font-size: 0.875rem; color: var(--muted); }
+figcaption .mono { color: var(--fg); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>DITOO<span>.</span></h1>
+    <span id="link" class="pill">подключаюсь…</span>
+  </header>
+  <p id="linkErr" class="err" hidden></p>
+
+  <form id="cfg">
+    <fieldset>
+      <legend>Экран</legend>
+      <div class="field">
+        <span class="label" id="modeLabel">Что показывать</span>
+        <div class="seg" role="radiogroup" aria-labelledby="modeLabel">
+          <label><input type="radio" name="mode" id="modeClock" value="clock" checked><span>Часы и погода</span></label>
+          <label><input type="radio" name="mode" id="modeColor" value="color"><span>Цвет</span></label>
+        </div>
+      </div>
+      <div class="field" id="colorField" hidden>
+        <label for="color">Цвет заливки</label>
+        <div class="row"><input type="color" id="color" value="#ff7800"><span class="mono" id="colorHex">#ff7800</span></div>
+      </div>
+      <div class="field">
+        <label for="brightness">Яркость</label>
+        <div class="row"><input type="range" id="brightness" min="0" max="100" step="5" value="50"><output id="brightOut" for="brightness">50%</output></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Время и погода</legend>
+      <div class="field">
+        <label for="tz">Часовой пояс</label>
+        <select id="tz"></select>
+      </div>
+      <div class="field">
+        <label for="city">Город для погоды</label>
+        <input type="text" id="city" maxlength="100" placeholder="Определить по IP" autocomplete="address-level2">
+        <span class="hint">Как в wttr.in: «Belgrade», «Москва», «~Eiffel Tower». Пусто — по IP мини-ПК.</span>
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" id="apply">Применить</button>
+      <span id="msg" role="status"></span>
+    </div>
+  </form>
+
+  <details id="soonBox">
+    <summary>Скоро <span class="hint">команды BLE, которые уже разобраны, но ещё не подключены</span></summary>
+    <ul class="soon">
+      <li><b>Встроенные циферблаты</b><span class="hint">стиль, 12/24 часа, цвет</span><span class="op">0x45</span></li>
+      <li><b>Погода и прогноз на дни</b><span class="hint">родной экран погоды Дито</span><span class="op">0x5f</span></li>
+      <li><b>Бегущая строка</b><span class="hint">встроенным шрифтом, со скоростью</span><span class="op">0x86 · 0x6c</span></li>
+      <li><b>Анимации и GIF</b><span class="hint">покадровая загрузка 16×16</span><span class="op">0x49</span></li>
+      <li><b>Таймер и секундомер</b><span class="hint">обратный отсчёт, старт и стоп</span><span class="op">0x72</span></li>
+      <li><b>Табло и шумомер</b><span class="hint">счёт красных и синих до 999</span><span class="op">0x72</span></li>
+      <li><b>Будильники и памятные даты</b><span class="hint">с громкостью и днями недели</span><span class="op">0x43 · 0x54</span></li>
+      <li><b>Музыка</b><span class="hint">громкость, пауза, треки, SD-карта</span><span class="op">0x08 · 0x0a</span></li>
+      <li><b>Подсветка клавиатуры</b><span class="hint">вкл/выкл и эффекты</span><span class="op">0x23</span></li>
+      <li><b>Встроенные игры</b><span class="hint">запуск и кнопки</span><span class="op">0xa0</span></li>
+      <li><b>Синхронизация времени</b><span class="hint">часы самого Дито</span><span class="op">0x18</span></li>
+      <li><b>Батарея и прошивка</b><span class="hint">заряд и версия в шапке</span><span class="op">get</span></li>
+      <li><b>Энергосбережение</b><span class="hint">автовыключение, ночной режим</span><span class="op">0x40</span></li>
+    </ul>
+  </details>
+
+  <figure>
+    <div class="bezel"><canvas id="screen" width="320" height="320" role="img" aria-label="Экран Дито 16 на 16"></canvas></div>
+    <figcaption id="caption">Жду первый кадр…</figcaption>
+  </figure>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const ICONS = { sun: "ясно", partly: "переменная облачность", cloud: "облачно", rain: "дождь", snow: "снег", thunder: "гроза" };
+let state = null;
+
+// часовые пояса браузера; Local - пояс самого мини-ПК
+function fillZones(current) {
+  const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : []).slice();
+  if (current && current !== "Local" && !zones.includes(current)) zones.unshift(current);
+  $("tz").replaceChildren(new Option("Системный (как на мини-ПК)", "Local"), ...zones.map(z => new Option(z.replaceAll("_", " "), z)));
+  $("tz").value = current || "Local";
+}
+
+function fillForm(c) {
+  $(c.mode === "color" ? "modeColor" : "modeClock").checked = true;
+  $("color").value = "#" + c.color;
+  $("brightness").value = c.brightness;
+  $("city").value = c.city || "";
+  fillZones(c.tz);
+  syncLabels();
+}
+
+function syncLabels() {
+  $("colorField").hidden = !$("modeColor").checked;
+  $("colorHex").textContent = $("color").value;
+  $("brightOut").textContent = $("brightness").value + "%";
+}
+
+function drawScreen(pixels) {
+  const cv = $("screen"), dpr = window.devicePixelRatio || 1;
+  const size = Math.round(cv.clientWidth * dpr) || 320;
+  if (cv.width !== size) { cv.width = size; cv.height = size; }
+  const g = cv.getContext("2d"), cell = size / 16, r = cell * 0.42;
+  const css = getComputedStyle(document.documentElement);
+  g.fillStyle = css.getPropertyValue("--bezel").trim();
+  g.fillRect(0, 0, size, size);
+  const off = css.getPropertyValue("--led-off").trim();
+  for (let i = 0; i < 256; i++) {
+    const c = pixels ? pixels[i] : "#000000", lit = c !== "#000000";
+    const x = (i % 16 + 0.5) * cell, y = (Math.floor(i / 16) + 0.5) * cell;
+    g.shadowBlur = lit ? cell * 0.5 : 0;
+    g.shadowColor = c;
+    g.fillStyle = lit ? c : off;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  g.shadowBlur = 0;
+}
+
+function paint() {
+  if (!state) return;
+  const link = $("link");
+  link.className = "pill " + (state.connected ? "on" : "off");
+  link.textContent = state.connected ? "на связи" : "нет связи";
+  $("linkErr").hidden = !state.error;
+  $("linkErr").textContent = state.error || "";
+  drawScreen(state.screen);
+  const parts = [];
+  if (state.updated && !state.updated.startsWith("0001")) {
+    parts.push('Отправлено в <span class="mono">' + new Date(state.updated).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + "</span>");
+  }
+  if (state.config.mode === "clock") {
+    parts.push(state.weather
+      ? '<span class="mono">' + state.weather.temp + "°</span> " + (ICONS[state.weather.icon] || "")
+      : "погода не загрузилась");
+  }
+  $("caption").innerHTML = parts.join(" · ") || "Жду первый кадр…";
+}
+
+async function refresh(first) {
+  try {
+    const r = await fetch("api/state");
+    if (!r.ok) throw new Error(await r.text());
+    state = await r.json();
+    if (first) fillForm(state.config);
+    paint();
+  } catch (e) {
+    $("link").className = "pill off";
+    $("link").textContent = "сервер не отвечает";
+  }
+}
+
+$("cfg").addEventListener("input", syncLabels);
+$("cfg").addEventListener("submit", async e => {
+  e.preventDefault();
+  const body = {
+    mode: $("modeColor").checked ? "color" : "clock",
+    color: $("color").value.slice(1),
+    brightness: +$("brightness").value,
+    tz: $("tz").value,
+    city: $("city").value.trim(),
+  };
+  $("apply").disabled = true;
+  $("msg").className = "";
+  $("msg").textContent = "Отправляю…";
+  try {
+    const r = await fetch("api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.text()).trim());
+    state = await r.json();
+    paint();
+    $("msg").textContent = "Сохранено, Дито обновится через пару секунд";
+    setTimeout(() => refresh(false), 2500); // кадр уходит на Дито асинхронно
+  } catch (err) {
+    $("msg").className = "bad";
+    $("msg").textContent = "Не сохранилось: " + err.message;
+  } finally {
+    $("apply").disabled = false;
+  }
+});
+
+drawScreen(null);
+refresh(true);
+setInterval(() => refresh(false), 5000);
+window.addEventListener("resize", () => state && drawScreen(state.screen));
+</script>
+</body>
+</html>

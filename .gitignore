@@ -1,0 +1,7 @@
+/dito
+/dito.exe
+dito.json
+dito.json.tmp
+/data/
+*.png
+.DS_Store

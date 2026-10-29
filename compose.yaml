@@ -1,0 +1,13 @@
+services:
+  dito:
+    image: ghcr.io/fess932/dito:latest
+    restart: unless-stopped
+    # BlueZ на хосте пускает к адаптеру через системную шину D-Bus только root
+    user: root
+    environment:
+      TZ: Europe/Belgrade
+    ports:
+      - "8080:8080"
+    volumes:
+      - /run/dbus:/run/dbus:ro
+      - ./data:/data
