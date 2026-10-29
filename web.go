@@ -49,7 +49,7 @@ func (s *state) handler() http.Handler {
 		json.NewEncoder(w).Encode(s.snapshot())
 	})
 	mux.HandleFunc("POST /api/config", func(w http.ResponseWriter, r *http.Request) {
-		var c config
+		c := s.config() // чего нет в запросе, остаётся как было
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&c); err != nil {

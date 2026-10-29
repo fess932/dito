@@ -22,6 +22,8 @@ type config struct {
 	Brightness int    `json:"brightness"` // 0-100
 	TZ         string `json:"tz"`         // имя из базы IANA, Local - часовой пояс системы
 	City       string `json:"city"`       // пусто: wttr.in определит город по IP
+	ScreenSec  int    `json:"screenSec"`  // как часто перерисовывать экран
+	WeatherMin int    `json:"weatherMin"` // как часто спрашивать погоду
 }
 
 func (c config) validate() error {
@@ -39,6 +41,12 @@ func (c config) validate() error {
 	}
 	if len(c.City) > 100 {
 		return fmt.Errorf("город: слишком длинное название")
+	}
+	if c.ScreenSec < 10 || c.ScreenSec > 3600 {
+		return fmt.Errorf("обновление экрана: от 10 секунд до часа")
+	}
+	if c.WeatherMin < 5 || c.WeatherMin > 180 { // wttr.in ограничивает частые запросы
+		return fmt.Errorf("обновление погоды: от 5 до 180 минут")
 	}
 	return nil
 }
@@ -58,9 +66,9 @@ type state struct {
 
 func loadState(path string) *state {
 	s := &state{path: path, kick: make(chan struct{}, 1), px: &[256]rgb{},
-		cfg: config{Mode: "clock", Color: "ff7800", Brightness: 50, TZ: "Local"}}
+		cfg: config{Mode: "clock", Color: "ff7800", Brightness: 50, TZ: "Local", ScreenSec: 60, WeatherMin: 10}}
 	if b, err := os.ReadFile(path); err == nil {
-		var c config
+		c := s.cfg // поля, которых нет в старом файле, остаются по умолчанию
 		if err := json.Unmarshal(b, &c); err != nil || c.validate() != nil {
 			fmt.Fprintln(os.Stderr, "настройки", path, "повреждены, беру по умолчанию")
 		} else {
@@ -105,7 +113,7 @@ func (s *state) run() {
 	open, sentBright := false, -1
 	for {
 		cfg := s.config()
-		if cfg.Mode == "clock" && (time.Since(fetched) > 10*time.Minute || cfg.City != fetchedCity) {
+		if cfg.Mode == "clock" && (time.Since(fetched) > time.Duration(cfg.WeatherMin)*time.Minute || cfg.City != fetchedCity) {
 			w, err := fetchWeather(cfg.City)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "погода:", err)
@@ -168,9 +176,10 @@ func (s *state) run() {
 		}
 		s.mu.Unlock()
 
+		period := time.Duration(cfg.ScreenSec) * time.Second
 		select {
 		case <-s.kick:
-		case <-time.After(time.Until(time.Now().Truncate(time.Minute).Add(time.Minute))):
+		case <-time.After(time.Until(time.Now().Truncate(period).Add(period))): // по границе периода: при 60 с - ровно в начале минуты
 		}
 	}
 }

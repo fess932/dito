@@ -76,7 +76,7 @@ legend {
 label, .label { font-weight: 500; }
 .hint { font-size: 0.8125rem; color: var(--muted); }
 
-input[type="text"], select {
+input[type="text"], input[type="number"], select {
   width: 100%; font: inherit; color: var(--fg); background: var(--surface);
   border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px;
 }
@@ -97,6 +97,9 @@ input[type="color"] { width: 48px; height: 36px; padding: 0; border: 1px solid v
 output, .mono { font: 500 0.875rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
 output { min-width: 3.5ch; text-align: right; }
 
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 14px 20px; }
+input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.unit { color: var(--muted); font-size: 0.875rem; }
 .actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 button {
   font: 600 0.9375rem/1 var(--font-body); color: var(--accent-fg); background: var(--accent);
@@ -162,6 +165,21 @@ figcaption .mono { color: var(--fg); }
       </div>
     </fieldset>
 
+    <fieldset>
+      <legend>Обновление</legend>
+      <div class="pair">
+        <div class="field">
+          <label for="screenSec">Экран, раз в</label>
+          <div class="row"><input type="number" id="screenSec" min="10" max="3600" step="1" value="60" inputmode="numeric"><span class="unit">сек</span></div>
+        </div>
+        <div class="field">
+          <label for="weatherMin">Погода, раз в</label>
+          <div class="row"><input type="number" id="weatherMin" min="5" max="180" step="1" value="10" inputmode="numeric"><span class="unit">мин</span></div>
+        </div>
+      </div>
+      <span class="hint">Экран: 10–3600 с, при 60 кадр уходит ровно в начале минуты. Погода: 5–180 мин, чаще wttr.in не любит.</span>
+    </fieldset>
+
     <div class="actions">
       <button type="submit" id="apply">Применить</button>
       <span id="msg" role="status"></span>
@@ -211,6 +229,8 @@ function fillForm(c) {
   $("color").value = "#" + c.color;
   $("brightness").value = c.brightness;
   $("city").value = c.city || "";
+  $("screenSec").value = c.screenSec;
+  $("weatherMin").value = c.weatherMin;
   fillZones(c.tz);
   syncLabels();
 }
@@ -283,6 +303,8 @@ $("cfg").addEventListener("submit", async e => {
     brightness: +$("brightness").value,
     tz: $("tz").value,
     city: $("city").value.trim(),
+    screenSec: +$("screenSec").value,
+    weatherMin: +$("weatherMin").value,
   };
   $("apply").disabled = true;
   $("msg").className = "";
