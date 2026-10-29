@@ -136,7 +136,7 @@ func (s *state) run() {
 
 		// Дито рвёт простаивающее соединение, поэтому при ошибке сразу переподключаемся и повторяем один раз
 		var err error
-		for try := 0; try < 2; try++ {
+		for range 2 {
 			if !open {
 				if err = btOpen(); err != nil {
 					break
