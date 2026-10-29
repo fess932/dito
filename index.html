@@ -189,7 +189,7 @@ figcaption .mono { color: var(--fg); }
     <fieldset>
       <legend>Время</legend>
       <div class="field">
-        <span class="label" id="tzLabel">Часовые пояса <span class="hint">отметьте тот, что на экране</span></span>
+        <span class="label" id="tzLabel">Часовые пояса <span class="hint">отметьте тот, что на экране; сохраняется сразу</span></span>
         <ul class="choices" id="tzList" aria-labelledby="tzLabel"></ul>
         <div class="row">
           <select id="tzAdd" aria-label="Пояс, который добавить"></select>
@@ -201,7 +201,7 @@ figcaption .mono { color: var(--fg); }
     <fieldset>
       <legend>Погода</legend>
       <div class="field">
-        <span class="label" id="cityLabel">Города <span class="hint">отметьте тот, чья погода на экране</span></span>
+        <span class="label" id="cityLabel">Города <span class="hint">отметьте тот, чья погода на экране; сохраняется сразу</span></span>
         <ul class="choices" id="cityList" aria-labelledby="cityLabel"></ul>
         <div class="row">
           <input type="text" id="cityAdd" maxlength="100" placeholder="Belgrade, Москва, ~Eiffel Tower" aria-label="Город, который добавить">
@@ -284,8 +284,9 @@ const MAX_ITEMS = 10;
 let state = null;
 let tzs = [], tz = "Local", cities = [], city = "";
 
-function el(tag, props = {}, ...kids) {
+function el(tag, { dataset, ...props } = {}, ...kids) {
   const e = Object.assign(document.createElement(tag), props);
+  if (dataset) Object.assign(e.dataset, dataset); // dataset только для чтения, его нельзя присвоить целиком
   e.append(...kids);
   return e;
 }
@@ -322,17 +323,18 @@ function choiceList(listId, items, active, label, extra, onPick, onRemove) {
   }));
 }
 
+// выбор, добавление и удаление в списках сохраняются сразу
 function renderTz() {
   choiceList("tzList", tzs, tz, tzName,
     z => el("span", { className: "mono", textContent: timeIn(z), dataset: { tz: z } }),
-    z => { tz = z; },
-    z => { tzs = tzs.filter(x => x !== z); if (tz === z) tz = tzs[0]; renderTz(); });
+    z => { tz = z; save("Пояс переключён"); },
+    z => { tzs = tzs.filter(x => x !== z); if (tz === z) tz = tzs[0]; renderTz(); save("Пояс убран"); });
   $("tzAddBtn").disabled = tzs.length >= MAX_ITEMS;
 }
 function renderCities() {
   choiceList("cityList", cities, city, cityName, null,
-    c => { city = c; },
-    c => { cities = cities.filter(x => x !== c); if (city === c) city = cities[0]; renderCities(); });
+    c => { city = c; save("Город переключён"); },
+    c => { cities = cities.filter(x => x !== c); if (city === c) city = cities[0]; renderCities(); save("Город убран"); });
   $("cityAddBtn").disabled = cities.length >= MAX_ITEMS;
 }
 
@@ -344,11 +346,11 @@ function fillZonePicker() {
 
 $("tzAddBtn").addEventListener("click", () => {
   const z = $("tzAdd").value;
-  if (!tzs.includes(z) && tzs.length < MAX_ITEMS) { tzs.push(z); tz = z; renderTz(); }
+  if (!tzs.includes(z) && tzs.length < MAX_ITEMS) { tzs.push(z); tz = z; renderTz(); save("Пояс добавлен"); }
 });
 $("cityAddBtn").addEventListener("click", () => {
   const c = $("cityAdd").value.trim();
-  if (!cities.includes(c) && cities.length < MAX_ITEMS) { cities.push(c); city = c; renderCities(); }
+  if (!cities.includes(c) && cities.length < MAX_ITEMS) { cities.push(c); city = c; renderCities(); save("Город добавлен"); }
   $("cityAdd").value = "";
 });
 $("cityAdd").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("cityAddBtn").click(); } });
@@ -371,8 +373,7 @@ function syncLabels() {
 }
 
 $("cfg").addEventListener("input", syncLabels);
-$("cfg").addEventListener("submit", async e => {
-  e.preventDefault();
+async function save(done = "Сохранено") {
   $("apply").disabled = true;
   setStatus("msg", "Отправляю…");
   try {
@@ -385,14 +386,15 @@ $("cfg").addEventListener("submit", async e => {
       weatherMin: +$("weatherMin").value,
     });
     paint();
-    setStatus("msg", "Сохранено, Дито обновится через пару секунд");
+    setStatus("msg", done + ", Дито обновится через пару секунд");
     setTimeout(() => refresh(false), 2500); // кадр уходит на Дито асинхронно
   } catch (err) {
     setStatus("msg", "Не сохранилось: " + err.message, true);
   } finally {
     $("apply").disabled = false;
   }
-});
+}
+$("cfg").addEventListener("submit", e => { e.preventDefault(); save(); });
 
 /* ---- экран 16x16: квадратные пиксели с зазором, как у Дито ---- */
 function drawScreen(pixels) {
